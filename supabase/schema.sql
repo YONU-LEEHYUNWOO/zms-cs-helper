@@ -117,28 +117,35 @@ ON CONFLICT DO NOTHING;
 
 -- =================================================================
 -- 11. Row Level Security (RLS) 및 권한 부여
--- 모든 테이블에 대해 로그인된 사내 직원(authenticated)에게 모든 권한 허용
+-- 모든 테이블에 대해 authenticated 및 anon 세션 모두에게 모든 권한 허용 (익명/초기 세션 데이터 차단 차단)
 -- =================================================================
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON customers FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on customers" ON customers FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on customers" ON customers FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE internal_agents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON internal_agents FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on internal_agents" ON internal_agents FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on internal_agents" ON internal_agents FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE saved_templates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON saved_templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on saved_templates" ON saved_templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on saved_templates" ON saved_templates FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE call_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON call_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on call_logs" ON call_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on call_logs" ON call_logs FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE consultations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON consultations FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on consultations" ON consultations FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on consultations" ON consultations FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE agent_tasks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON agent_tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on agent_tasks" ON agent_tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on agent_tasks" ON agent_tasks FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE consultations_archive ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all operations for authenticated users" ON consultations_archive FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for authenticated users on consultations_archive" ON consultations_archive FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow ALL for anon users on consultations_archive" ON consultations_archive FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- =================================================================
 -- 12. Supabase Realtime (웹소켓 실시간 동기화) 설정
