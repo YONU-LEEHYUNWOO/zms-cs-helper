@@ -1,0 +1,1 @@
+{"name":"ZMS_CS_HELPER","description":"AI 기반 주차 공유 서비스 통합 CS 관리 플랫폼 (전화/카카오 통합, STT 녹취 요약, 고객/차량 마스터 관리, 태스크 리마인더)","requestFramePermissions":[],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}
