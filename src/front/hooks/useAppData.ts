@@ -33,13 +33,16 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
 
   const fetchAgents = useCallback(() => {
     if (isSupabaseConfigured() && supabase) {
+      // Supabase DB에서 전체 상담원 목록을 100% 실시간으로 가져옴 (내 계정에서도 타 상담원 확인 가능)
       supabase
         .from('internal_agents')
         .select('*')
+        .order('created_at', { ascending: true })
         .then(({ data, error }) => {
           if (!error && data) {
             const agentList = data as InternalAgent[];
-            if (currentAgent && !agentList.find(a => a.agent_name === currentAgent.agent_name)) {
+            // 로컬 로그인 상담원이 DB 목록에 없을 경우 상단에 추가
+            if (currentAgent && !agentList.find(a => a.email === currentAgent.email || a.agent_name === currentAgent.agent_name)) {
               agentList.unshift(currentAgent);
             }
             setAgents(agentList);
@@ -54,49 +57,19 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
 
   const fetchTasks = useCallback(() => {
     if (isSupabaseConfigured() && supabase) {
+      // Supabase DB에서 전체 TODO 태스크를 실 데이터 기준으로 가져옴 (하드코딩 없음)
       supabase
         .from('agent_tasks')
         .select('*')
         .order('created_at', { ascending: false })
-        .then(async ({ data, error }) => {
-          if (!error && data) {
-            if (data.length === 0) {
-              const defaultInitialTasks: AgentTask[] = [
-                {
-                  id: generateUUID(),
-                  task_title: '강남역 주차장 차단기 원격개방 리마인더',
-                  agent_name: '이현우',
-                  is_completed: false,
-                  created_at: new Date().toISOString(),
-                  tag: '리마인더',
-                  due_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-                },
-                {
-                  id: generateUUID(),
-                  task_title: '홍길동 고객님 월주차 결제 링크 재발송 건',
-                  agent_name: '이현우',
-                  is_completed: false,
-                  created_at: new Date(Date.now() - 3600000).toISOString(),
-                  tag: '결제환불확인',
-                  due_date: new Date().toISOString().split('T')[0],
-                },
-                {
-                  id: generateUUID(),
-                  task_title: '정기권 차량 등록 정보 오탈자 검수 완료',
-                  agent_name: '이현우',
-                  is_completed: true,
-                  created_at: new Date(Date.now() - 7200000).toISOString(),
-                  tag: '개인메모',
-                },
-              ];
-              await supabase.from('agent_tasks').upsert(defaultInitialTasks);
-              setTasks(defaultInitialTasks);
-              localStorage.setItem('local_agent_tasks', JSON.stringify(defaultInitialTasks));
-            } else {
-              setTasks(data as AgentTask[]);
-              localStorage.setItem('local_agent_tasks', JSON.stringify(data));
-            }
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[fetchTasks] Supabase 조회 오류:', error.message);
+            return;
           }
+          // DB 데이터를 그대로 상태에 반영 (빈 배열이어도 그대로 표시)
+          setTasks((data as AgentTask[]) || []);
+          localStorage.setItem('local_agent_tasks', JSON.stringify(data || []));
         });
     } else {
       const cachedTasks = localStorage.getItem('local_agent_tasks');
