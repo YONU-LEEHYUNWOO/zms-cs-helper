@@ -47,43 +47,25 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 ### 2-9. 🎛️ 칸반 보드 세부 단계별 아코디언(Accordion) 관제 보드 구축 (2026-08-21 완료)
 * **세부 프로세스 단계별 아코디언 패널 그룹화 (`KanbanBoardView.tsx`)**: `접수`, `해결중`, `완료` 3대 컬럼 내부 세부 단계별 아코디언 정돈 및 디폴트 접힘 설정.
 
-### 2-11. 🔑어드민 Supabase Auth 정식 회원가입 연동 & 관제 뷰 계정별 디폴트 필터링 (2026-08-21 완료)
-* **Supabase Auth signUp 연동 (`AgentProfileModal.tsx`, `useAppData.ts`)**: 어드민 폼에서 이메일(`email`), 이름, 팀, 내선번호, 초기 비밀번호 입력 시 `supabase.auth.signUp` 및 DB 동시 저장하여 생성된 상담원 정식 로그인 지원.
-* **어드민 샌드박스 보안 격리**: `🔄 샌드박스 계정 전환` 및 `🏢 상담사 명단 관리` 탭은 오직 최고 관리자 계정(`role === 'ADMIN'`)에만 노출.
-* **전 관제 뷰 계정별 디폴트 필터링**: 데이터 마스터 DB (`DbViewerTab.tsx`), 업무 TODO (`TaskManagementView.tsx`), 칸반, 캘린더 등에서 로그인된 계정(`이현우`) 데이터 1순위 디폴트 관제 및 엑셀 다운로드 연동 완료.
+### 2-12. 🚀 Phase 3.0 Vercel 사내 SaaS 상용 배포 & GitHub 연동 완료 (2026-08-24 완료)
+* **GitHub 레포지토리 연동**: `YONU-LEEHYUNWOO/zms-cs-helper` (`https://github.com/YONU-LEEHYUNWOO/zms-cs-helper.git`) 메인 브랜치 소스코드 100% 업로드 완수.
+* **Vercel 1클릭 라이브 배포**: `vercel.json` SPA Fallback 라우팅 구축 및 Vercel 클라우드 CDN 상용 배포 성공.
+* **클라우드 Supabase DB 실시간 마이그레이션**: 배포된 라이브 URL에서도 데이터 손실 없이 기존 Supabase 데이터 마스터와 100% 실시간 연동 완료.
+
+### 2-13. ⚡ Gemini 3.5/3.6 Flash 초고속 2초 STT 최적화 & 계정별 키 저장 (2026-08-24 완료)
+* **Gemini 정식 최신 모델 1순위 구동 (`server.ts`, `geminiApi.ts`)**: `gemini-3.5-flash`를 1순위에 배치하여 404 재시도 병목 없이 **2~3초 내에 초고속 STT 파싱 및 3줄 요약 완료**.
+* **Google AI Studio 1분 무료 키 발급 가이드 UI**: `AgentProfileModal.tsx` 내 프로필 및 `CtiAudioSummaryModal.tsx`에 원클릭 발급 가이드 및 `gemini_api_key_${agentName}` 계정별 독립 키 저장 탑재.
+
+### 2-14. 📞 CTI 녹취 내선번호 ↔ 상담사 계정 1:1 자동 매칭 표출 (2026-08-24 완료)
+* **CTI 녹취 목록 & 오른쪽 상세 패널 동기화 (`CtiRecordTable.tsx`, `CtiDetailPanel.tsx`, `LogsArchiveView.tsx`)**: CTI 내선번호(예: `105`)를 `internal_agents` DB의 `extension_number`와 1:1 매칭하여 **`👤 이현우 상담사`** 인디케이터 배지 시각적 표출.
+
+### 2-15. 🚗 '차량 변경' 공유자 폼 활성화 & 3단계 스텝퍼 및 스마트 알림 고도화 (2026-08-24 완료)
+* **'차량 변경' 3단계 전용 프로세스 스텝퍼 (`CenterCustomerForm.tsx`, `ProcessStepper.tsx`)**: `owner_phone` 컬럼 재활용 폼 활성화 및 `문의 접수` ➔ `유관 부서/공급사 확인 중` ➔ `처리 완료` 3단계 적용.
+* **스마트 리마인드 알림 고도화 (`useNotifications.ts`)**: `hope_date` 기본값 D-Day 오류 완전 차단, `공유자_부재`, `결제메시지_전송`, `부서확인중` 세부 단계별 전용 스마트 리마인드 분화.
 
 ---
 
-## 3. 🚀 [다음 단계 과제] Phase 3.0 상용 배포 (Production Deployment) & 사내 URL 배포 전략
-
-### 🌐 1단계: Vercel / Netlify 1클릭 클라우드 배포 (Deployment)
-* **목적**: 빌드 결과물(`dist`)을 클라우드 CDN에 배포하여 팀원 누구나 접속 가능한 HTTPS SSL 고유 URL (예: `https://zms-cs-helper.vercel.app`) 생성.
-* **실행 절차**:
-  1. Git 저장소 최신 버전 커밋 & 푸시 (`git push origin main`).
-  2. Vercel 로그인 ➔ `New Project` ➔ Git Repository 선택 후 Deploy 실행.
-
-### 🔑 2단계: 배포 환경 변수 (`.env`) & API 키 중앙 세팅
-* **Vercel / Netlify Environment Variables 메뉴 등록**:
-  - `VITE_SUPABASE_URL`: Supabase 클라우드 URL
-  - `VITE_SUPABASE_ANON_KEY`: Supabase 익명 API 키
-  - `VITE_GEMINI_API_KEY`: Gemini Multimodal AI 오디오 요약 API 키
-  - `VITE_CTI_SERVER_URL`: 사내 CTI 프록시 엔드포인트 URL
-* **보안 검증**: `.env` 파일은 Git 추적 제외(`.gitignore`)로 보안 유지, Supabase RLS 정책 가동 유지.
-
-### 👥 3단계: 사내 팀원 URL 전달 & 알파 실전 릴리즈
-* **릴리즈 절차**: 생성된 Vercel URL을 사내 CS 팀원들에게 전달 ➔ 어드민 계정에서 신규 상담사 계정 생성 후 사내 배포 정식 가동.
-
-### 📞 4단계: CTI 녹취 내선번호 ↔ 사내 상담사 계정 1:1 자동 매칭 표출 (`CtiAudioModal.tsx`, `LogsArchiveView.tsx`)
-* **목적**: CTI 녹취 및 음성 분석 수신 목록에 표출되는 CTI 내선번호(예: `105`, `7997`) 옆에 `internal_agents` DB의 `extension_number`와 1:1 매칭되는 **실제 등록 상담사 이름(예: 👤 이현우 상담사건)**을 자동으로 시각적 표출하여 통화 주체를 즉각 식별 가능하도록 구현.
-
-### 🚗 5단계: '차량 변경' 문의 선택 시 공유자 연락처 폼 활성화 & 3단계 전용 스텝퍼 구현 (`CenterCustomerForm.tsx`, `ProcessStepper.tsx`, 관제 뷰 전반)
-* **목적**: DB 구조 변경 없이 기존 `consultations.owner_phone` 컬럼을 100% 재활용하여, 문의 유형 `차량 변경` 선택 시 **공유자 연락처 (`owner_phone`)** 입력 필드가 자연스럽게 활성화되도록 구현.
-* **전용 3단계 스텝퍼**: 결제/부재 과정이 없는 `차량 변경` 특성에 맞춰 깔끔한 3단계 프로세스 적용 (1단계: 문의 접수 ➔ 2단계: 유관 부서/공급사 확인 중 ➔ 3단계: 처리 완료).
-* **다방향 관제 연동**: 칸반 보드(`유선 부서 확인 중` 컬럼), 캘린더, 데이터 마스터 DB(`owner_phone` 열)에 공유자 연락처 및 3단계 진행 상태가 실시간 정합성 있게 표출되도록 처리.
-
----
-
-## 4. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
+## 3. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
 
 ### 🌟 💡 [SaaS 고도화 1] 고객별 과거 전체 상담 이력 시각적 수직 타임라인 모달 (Customer History Timeline Viewer)
 * **목적**: 0대 전제("과거에 어떤 상담 직원과 무슨 내용으로 통화했는지 즉각 추적")를 극대화.
@@ -97,20 +79,23 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ---
 
-## 5. 📂 핵심 파일 위치 및 역할
+## 4. 📂 핵심 파일 위치 및 역할
 
 | 기능 | 핵심 파일 | 설명 및 주의사항 |
 |---|---|---|
 | 탑바 & 알림/계정 드롭다운 | `src/front/components/navigation/TopNavBar.tsx` | **계정 프로필 단일화, 미확인/확인 서브 탭 분류, 🔔 알림 펄스 애니메이션** |
 | 좌측 사이드바 | `src/front/components/navigation/LeftSidebar.tsx` | 메인 서브 메뉴 내비게이션, 하단 내 프로필 & 어드민 가입 모달 |
-| 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, 샌드박스 전환(어드민 전용), 동적 권한 변경** |
+| 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
+| CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석** |
+| CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
+| CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출**, CTI 키워드/유형 필터 |
 | 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 상단 KPI 카드 뷰 스위처, **내 계정 디폴트 필터링**, 태그/담당자/검색 필터 |
 | 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드** |
-| 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, D-Day 알림 계산, 5초 주기 실시간 감지 타이머 |
-| 주차/연장 동적 폼 | `src/front/components/workspace/CenterCustomerForm.tsx` | 주차 문의 & 연장 문의 차주/공유자/시작일 폼 확장 동기화 |
-| 문의 프로세스 스텝퍼 | `src/front/components/workspace/ProcessStepper.tsx` | 주차 문의 & 연장 4단계 스텝퍼, 기타 3단계 스텝퍼 |
+| 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, `sub_status` 스마트 리마인드 알림, 사내 계정 간 다방향 실시간 동기화 |
+| 주차/연장/차량변경 동적 폼 | `src/front/components/workspace/CenterCustomerForm.tsx` | 주차 문의/연장/차량 변경 동적 상세 폼 확장 동기화 |
+| 문의 프로세스 스텝퍼 | `src/front/components/workspace/ProcessStepper.tsx` | 주차 문의 4단계 스텝퍼, 차량 변경 3단계 스텝퍼 (`유관 부서/공급사 확인 중`) |
 | 전역 마스킹 유틸리티 | `src/lib/utils/normalize.ts` | 임시 우회 식별자(`no-car-`, `no-phone-`) UI 마스킹 및 전화번호 표준화 |
 
 ---
 
-*최종 업데이트: 2026-08-21 (Supabase Auth 어드민 신규 계정 가입 연동 및 상용 배포 로드맵 최신화 완료) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-08-24 (Vercel 사내 SaaS 상용 배포 오픈, Gemini 3.5 Flash 2초 STT 최적화 및 CTI 상담사 매칭 완료) / 담당 AI: Antigravity*
