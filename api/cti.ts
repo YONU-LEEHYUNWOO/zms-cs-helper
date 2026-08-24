@@ -11,12 +11,23 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
+  // 1. 요청 바디 안전 파싱
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+  body = body || {};
+
   const urlPath = req.url || '';
 
-  // 1. CTI MP3 URL 조회 전용 API (`/api/cti/get-mp3-url`)
-  if (urlPath.includes('get-mp3-url') || req.body?.action === 'get-mp3-url') {
+  // 2. CTI MP3 URL 조회 전용 API (`/api/cti/get-mp3-url`)
+  if (urlPath.includes('get-mp3-url') || body.action === 'get-mp3-url') {
     try {
-      const { callIdx, ctiUserId, ctiUserPw, sessionCookie } = req.body || {};
+      const { callIdx, ctiUserId, ctiUserPw, sessionCookie } = body;
       if (!callIdx) return res.status(200).json({ success: false, message: 'callIdx가 필요합니다.' });
 
       let cookies = sessionCookie ? String(sessionCookie).trim() : '';
@@ -32,15 +43,15 @@ export default async function handler(req: any, res: any) {
         return res.json({ success: false, message: 'detail_view.jsp에서 MP3 URL을 추출하지 못했습니다.' });
       }
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err.message });
+      return res.status(500).json({ success: false, message: err?.message || String(err) });
     }
   }
 
-  // 2. CTI 오디오 파일 프록시 스트리밍 API (`/api/cti/proxy-audio`)
-  if (urlPath.includes('proxy-audio') || req.body?.action === 'proxy-audio' || req.query?.action === 'proxy-audio') {
+  // 3. CTI 오디오 파일 프록시 스트리밍 API (`/api/cti/proxy-audio`)
+  if (urlPath.includes('proxy-audio') || body.action === 'proxy-audio' || req.query?.action === 'proxy-audio') {
     try {
-      const targetUrl = (req.query?.url || req.body?.url) as string;
-      const cookies = (req.query?.cookie || req.body?.cookie || '') as string;
+      const targetUrl = (req.query?.url || body.url) as string;
+      const cookies = (req.query?.cookie || body.cookie || '') as string;
 
       if (!targetUrl) {
         return res.status(400).send('오디오 URL이 누락되었습니다.');
@@ -63,9 +74,9 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // 3. CTI 메인 녹취 크롤링 & AI 분석 API (`/api/cti/process-recording`)
+  // 4. CTI 메인 녹취 크롤링 & AI 분석 API (`/api/cti/process-recording`)
   try {
-    const { phoneNumber, ctiUserId, ctiUserPw, extensionFilter, selectedCallIdx, action, sessionCookie, preKnownMp3Url, userGeminiKey } = req.body || {};
+    const { phoneNumber, ctiUserId, ctiUserPw, extensionFilter, selectedCallIdx, action, sessionCookie, preKnownMp3Url, userGeminiKey } = body;
 
     if (!phoneNumber) {
       return res.status(200).json({ success: false, message: '고객 전화번호가 필요합니다.' });
@@ -148,7 +159,7 @@ export default async function handler(req: any, res: any) {
       records = [targetRecord];
     }
 
-    const isMetadataOnly = req.body.onlyMetadata !== false;
+    const isMetadataOnly = body.onlyMetadata !== false;
     let audioBuffer: Buffer | null = null;
 
     if (!isMetadataOnly && targetRecord.fullUrl && !targetRecord.isSimulation) {
@@ -269,6 +280,6 @@ export default async function handler(req: any, res: any) {
     });
   } catch (err: any) {
     console.error('[Vercel CTI Handler Error]:', err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(200).json({ success: false, message: err?.message || String(err) });
   }
 }
