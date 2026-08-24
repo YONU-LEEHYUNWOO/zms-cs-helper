@@ -168,6 +168,9 @@ ZMS_CS_HELPER/
 ### 4.9 🚗 '차량 변경' 문의 선택 시 공유자 연락처 폼 활성화 & 3단계 전용 스텝퍼 기획 (`CenterCustomerForm.tsx`, `ProcessStepper.tsx`)
 * **기능 요약**: 기존 DB 컬럼(`owner_phone`, `status`, `sub_status`)을 100% 재활용하여 DB 복잡도를 0으로 유지. 문의 유형 `차량 변경` 선택 시 **공유자 연락처 (`owner_phone`)** 입력창만 자연스럽게 활성화하고, 전용 3단계 스텝퍼 (1단계: 문의 접수 ➔ 2단계: 유관 부서/공급사 확인 중 ➔ 3단계: 처리 완료)를 적용하여 저장 및 관제 뷰에 동기화 표출.
 
+### 4.10 ⚡ Supabase DB 트리거 기반 Auth ➔ internal_agents 자동 연동 (`sync_auth_user_to_internal_agents`)
+* **기능 요약**: `auth.users`에 신규 회원가입 발생 시 PostgreSQL DB 트리거가 `internal_agents` 테이블에 자동 삽입/갱신하여, 어떤 계정이 가입되더라도 별도 처리 없이 전체 상담원 명단에 100% 즉시 표출 및 다방면 실시간 관제 연동 완수.
+
 ---
 
 ## 5. 🌐 상용 배포 (Production Deployment) & 환경 변수 키 관리 가이드

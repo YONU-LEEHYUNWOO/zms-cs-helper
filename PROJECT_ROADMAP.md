@@ -63,6 +63,11 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 * **'차량 변경' 3단계 전용 프로세스 스텝퍼 (`CenterCustomerForm.tsx`, `ProcessStepper.tsx`)**: `owner_phone` 컬럼 재활용 폼 활성화 및 `문의 접수` ➔ `유관 부서/공급사 확인 중` ➔ `처리 완료` 3단계 적용.
 * **스마트 리마인드 알림 고도화 (`useNotifications.ts`)**: `hope_date` 기본값 D-Day 오류 완전 차단, `공유자_부재`, `결제메시지_전송`, `부서확인중` 세부 단계별 전용 스마트 리마인드 분화.
 
+### 2-16. ⚡ CTI Vercel 서버리스 번들링 & Supabase Auth 자동 동기화 및 TODO 실데이터 연동 (2026-08-24 완료)
+* **TODO 하드코딩 제거 및 Supabase 실데이터 연동 (`useAppData.ts`)**: 하드코딩 시딩 제거, DB 기반 실데이터 표출 및 로컬스토리지 1회 자동 DB 마이그레이션 적용.
+* **Supabase Auth → internal_agents 100% 자동 동기화 트리거 (`sync_auth_user_to_internal_agents`)**: 신규 상담사 가입 즉시 DB 트리거가 `internal_agents`에 자동 삽입하여 전 상담사 명단 다방면 조회 완수.
+* **Vercel 서버리스 ESM 동적 import & CTI 크롤링 복구 (`api/cti.ts`, `api/ctiCollectorService.ts`)**: `.js` 확장자 해석 및 번들 파일 정돈으로 CTI 크롤링 100% 정상 가동 (`success: true`).
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
