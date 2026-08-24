@@ -192,14 +192,19 @@ async function handleCtiRequest(req: any, res: any) {
       }
     }
 
-    // Gemini AI 인스턴스 준비 (사용자 개별 키 우선 사용)
-    const effectiveApiKey = userGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || 'AIzaSyBFmO6pcVUVRNNQc_5oZldPiJtTa7uL5yw';
+    // Gemini AI 인스턴스 준비 (사용자 개별 키만 사용, 서버 전역 키 없음)
+    // GEMINI_API_KEY가 없으면 Gemini 분석 없이 크롤링 결과만 반환
+    const effectiveApiKey = userGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || null;
     const ai = effectiveApiKey
       ? new GoogleGenAI({
           apiKey: effectiveApiKey,
           httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
         })
       : null;
+
+    if (!effectiveApiKey) {
+      logs.push(`ℹ️ [Gemini 비활성화] 사용자 Gemini API 키 미제공 - 크롤링 메타데이터만 반환합니다.`);
+    }
 
     const extName = targetRecord.memberPhone || targetExt || '070-7931-7997';
     const phoneDisplay = targetRecord.guestPhone || cleanPhone;
