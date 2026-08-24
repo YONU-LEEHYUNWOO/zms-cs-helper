@@ -33,7 +33,7 @@ export default async function handler(req: any, res: any) {
 async function handleCtiRequest(req: any, res: any) {
   // 정적 import: api/ 폴더 내 번들 파일에서 로드 (Vercel esbuild가 올바르게 번들링)
   const { GoogleGenAI } = await import('@google/genai');
-  const { ctiCollectorService } = await import('./ctiCollectorService');
+  const { ctiCollectorService } = await import('./ctiCollectorService.js'); // ESM: .js 확장자 필수
 
   // 1. 요청 바디 안전 파싱
 
