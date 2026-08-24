@@ -57,17 +57,41 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
 
   const fetchTasks = useCallback(() => {
     if (isSupabaseConfigured() && supabase) {
-      // Supabase DB에서 전체 TODO 태스크를 실 데이터 기준으로 가져옴 (하드코딩 없음)
+      // Supabase DB에서 전체 TODO 태스크를 실 데이터 기준으로 가져옴
       supabase
         .from('agent_tasks')
         .select('*')
         .order('created_at', { ascending: false })
-        .then(({ data, error }) => {
+        .then(async ({ data, error }) => {
           if (error) {
             console.error('[fetchTasks] Supabase 조회 오류:', error.message);
             return;
           }
-          // DB 데이터를 그대로 상태에 반영 (빈 배열이어도 그대로 표시)
+
+          // DB가 비어있을 때: PC 로컬스토리지에 기존 데이터 있으면 Supabase로 1회 마이그레이션
+          if ((!data || data.length === 0)) {
+            const cachedRaw = localStorage.getItem('local_agent_tasks');
+            if (cachedRaw) {
+              try {
+                const localTasks: AgentTask[] = JSON.parse(cachedRaw);
+                if (localTasks.length > 0) {
+                  console.log(`[fetchTasks] 로컬스토리지 TODO ${localTasks.length}건 → Supabase 마이그레이션 시작`);
+                  const { error: upsertErr } = await supabase.from('agent_tasks').upsert(localTasks);
+                  if (!upsertErr) {
+                    console.log('[fetchTasks] 마이그레이션 완료');
+                    setTasks(localTasks);
+                    return;
+                  } else {
+                    console.warn('[fetchTasks] 마이그레이션 오류:', upsertErr.message);
+                  }
+                }
+              } catch (e) {
+                console.warn('[fetchTasks] 로컬스토리지 파싱 오류:', e);
+              }
+            }
+          }
+
+          // DB 데이터를 그대로 상태에 반영
           setTasks((data as AgentTask[]) || []);
           localStorage.setItem('local_agent_tasks', JSON.stringify(data || []));
         });
