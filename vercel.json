@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/cti/(.*)",
+      "destination": "/api/cti"
+    },
+    {
+      "source": "/api/cti",
+      "destination": "/api/cti"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

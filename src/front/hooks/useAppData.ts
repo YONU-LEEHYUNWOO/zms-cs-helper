@@ -31,7 +31,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   // 📦 Phase 1.5: 90일 경과 완료건 보관 이력 필터 토글 상태
   const [showOlderArchive, setShowOlderArchive] = useState<boolean>(false);
 
-  useEffect(() => {
+  const fetchAgents = useCallback(() => {
     if (isSupabaseConfigured() && supabase) {
       supabase
         .from('internal_agents')
@@ -50,7 +50,29 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
           }
         });
     }
+  }, [currentAgent]);
 
+  useEffect(() => {
+    fetchAgents();
+
+    let agentChannel: any = null;
+    if (isSupabaseConfigured() && supabase) {
+      agentChannel = supabase
+        .channel('public:internal_agents_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_agents' }, () => {
+          fetchAgents();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      if (agentChannel && supabase) {
+        supabase.removeChannel(agentChannel);
+      }
+    };
+  }, [fetchAgents]);
+
+  useEffect(() => {
     // Always fetch customers regardless of Supabase configuration
     customerRepository.getAllCustomers().then((data) => {
       if (data) setCustomers(data);
