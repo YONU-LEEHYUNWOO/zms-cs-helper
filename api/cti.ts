@@ -15,6 +15,20 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
+  // 전역 에러 캐처: 500 발생 시 실제 오류 메시지를 JSON으로 노출
+  try {
+    return await handleCtiRequest(req, res);
+  } catch (globalErr: any) {
+    console.error('[CTI GLOBAL ERROR]:', globalErr);
+    return res.status(500).json({
+      success: false,
+      message: `CTI 서버 오류: ${globalErr?.message || String(globalErr)}`,
+      stack: globalErr?.stack?.split('\n').slice(0, 5),
+    });
+  }
+}
+
+async function handleCtiRequest(req: any, res: any) {
   // 1. 요청 바디 안전 파싱
   let body = req.body;
   if (typeof body === 'string') {
