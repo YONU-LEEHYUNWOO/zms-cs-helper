@@ -175,7 +175,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // Gemini AI 인스턴스 준비 (사용자 개별 키 우선 사용)
-    const effectiveApiKey = userGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const effectiveApiKey = userGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || 'AIzaSyBFmO6pcVUVRNNQc_5oZldPiJtTa7uL5yw';
     const ai = effectiveApiKey
       ? new GoogleGenAI({
           apiKey: effectiveApiKey,
