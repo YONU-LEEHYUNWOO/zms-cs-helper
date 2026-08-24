@@ -688,63 +688,65 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   }) => {
     let createdAgentId = generateUUID();
     const targetEmail = (newAgentData.email || '').toLowerCase().trim();
+    const cleanAgentName = newAgentData.agent_name.trim();
 
     if (isSupabaseConfigured() && supabase) {
-      try {
-        // 1. Supabase Auth 회원가입 연동 (실제 로그인 가능한 계정 생성)
-        const { data, error: authErr } = await supabase.auth.signUp({
-          email: targetEmail,
-          password: newAgentData.password_hash || '12341234',
-          options: {
-            data: {
-              agent_name: newAgentData.agent_name.trim(),
-              team_name: newAgentData.team_name || 'CS 1팀',
-              extension_number: newAgentData.extension_number || '',
-              phone_number: newAgentData.phone_number || '',
-              role: newAgentData.role || 'AGENT',
-            },
+      // 1. Supabase Auth 회원가입 연동 (실제 로그인 가능한 계정 생성)
+      const { data, error: authErr } = await supabase.auth.signUp({
+        email: targetEmail,
+        password: newAgentData.password_hash || '12341234',
+        options: {
+          data: {
+            agent_name: cleanAgentName,
+            team_name: newAgentData.team_name || 'CS 1팀',
+            extension_number: newAgentData.extension_number || '',
+            phone_number: newAgentData.phone_number || '',
+            role: newAgentData.role || 'AGENT',
           },
-        });
+        },
+      });
 
-        if (authErr) {
-          console.warn('[registerNewAgent] Supabase Auth signUp 경고:', authErr.message);
-        } else if (data.user) {
-          createdAgentId = data.user.id;
-        }
-
-        // 2. internal_agents 마스터 DB 테이블 생성 및 동기화
-        const newAgent: InternalAgent = {
-          id: createdAgentId,
-          email: targetEmail,
-          agent_name: newAgentData.agent_name.trim(),
-          team_name: newAgentData.team_name || 'CS 1팀',
-          extension_number: newAgentData.extension_number || '',
-          phone_number: newAgentData.phone_number || '',
-          role: newAgentData.role || 'AGENT',
-          agent_status: '활성화',
-          created_at: new Date().toISOString(),
-        };
-
-        const { error: dbError } = await supabase.from('internal_agents').upsert([newAgent]);
-        if (dbError) {
-          console.error('[registerNewAgent] Supabase DB 오류:', dbError.message);
-        }
-
-        setAgents((prev) => {
-          const exists = prev.some((a) => a.id === newAgent.id || a.email === newAgent.email);
-          return exists ? prev.map((a) => (a.id === newAgent.id ? newAgent : a)) : [...prev, newAgent];
-        });
-
-        return newAgent;
-      } catch (e) {
-        console.error('[registerNewAgent] 예외:', e);
+      if (authErr && !authErr.message.includes('already registered')) {
+        console.error('[registerNewAgent] Supabase Auth signUp 오류:', authErr.message);
+        throw new Error(`Supabase Auth 가입 실패: ${authErr.message}`);
       }
+
+      if (data?.user) {
+        createdAgentId = data.user.id;
+      }
+
+      // 2. internal_agents 마스터 DB 테이블 생성 및 동기화
+      const newAgent: InternalAgent = {
+        id: createdAgentId,
+        email: targetEmail,
+        agent_name: cleanAgentName,
+        team_name: newAgentData.team_name || 'CS 1팀',
+        extension_number: newAgentData.extension_number || '',
+        phone_number: newAgentData.phone_number || '',
+        role: newAgentData.role || 'AGENT',
+        agent_status: '활성화',
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: dbError } = await supabase.from('internal_agents').upsert([newAgent], { onConflict: 'email' });
+      if (dbError) {
+        console.error('[registerNewAgent] Supabase DB 오류:', dbError.message);
+        throw new Error(`상담원 DB 저장 실패: ${dbError.message}`);
+      }
+
+      setAgents((prev) => {
+        const exists = prev.some((a) => a.id === newAgent.id || a.email === newAgent.email || a.agent_name === newAgent.agent_name);
+        return exists ? prev.map((a) => (a.id === newAgent.id || a.email === newAgent.email ? newAgent : a)) : [...prev, newAgent];
+      });
+
+      fetchAgents();
+      return newAgent;
     }
 
     const fallbackAgent: InternalAgent = {
       id: createdAgentId,
       email: targetEmail,
-      agent_name: newAgentData.agent_name.trim(),
+      agent_name: cleanAgentName,
       team_name: newAgentData.team_name || 'CS 1팀',
       extension_number: newAgentData.extension_number || '',
       phone_number: newAgentData.phone_number || '',
