@@ -31,9 +31,9 @@ export default async function handler(req: any, res: any) {
 }
 
 async function handleCtiRequest(req: any, res: any) {
-  // 동적 import: 모듈 로드 실패 시 globalErr로 캐치되어 JSON 에러 반환
+  // 정적 import: api/ 폴더 내 번들 파일에서 로드 (Vercel esbuild가 올바르게 번들링)
   const { GoogleGenAI } = await import('@google/genai');
-  const { ctiCollectorService } = await import('../src/backend/services/cti/ctiCollectorService');
+  const { ctiCollectorService } = await import('./ctiCollectorService');
 
   // 1. 요청 바디 안전 파싱
 
