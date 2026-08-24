@@ -52,15 +52,49 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     }
   }, [currentAgent]);
 
+  const fetchTasks = useCallback(() => {
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('agent_tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setTasks(data as AgentTask[]);
+            localStorage.setItem('local_agent_tasks', JSON.stringify(data));
+          }
+        });
+    } else {
+      const cachedTasks = localStorage.getItem('local_agent_tasks');
+      if (cachedTasks) {
+        try {
+          setTasks(JSON.parse(cachedTasks));
+        } catch (e) {
+          console.error('로컬 Tasks 로드 에러:', e);
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
     fetchAgents();
+    fetchTasks();
 
     let agentChannel: any = null;
+    let taskChannel: any = null;
+
     if (isSupabaseConfigured() && supabase) {
       agentChannel = supabase
         .channel('public:internal_agents_sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_agents' }, () => {
           fetchAgents();
+        })
+        .subscribe();
+
+      taskChannel = supabase
+        .channel('public:agent_tasks_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_tasks' }, () => {
+          fetchTasks();
         })
         .subscribe();
     }
@@ -69,53 +103,13 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       if (agentChannel && supabase) {
         supabase.removeChannel(agentChannel);
       }
+      if (taskChannel && supabase) {
+        supabase.removeChannel(taskChannel);
+      }
     };
-  }, [fetchAgents]);
+  }, [fetchAgents, fetchTasks]);
 
   useEffect(() => {
-    // Always fetch customers regardless of Supabase configuration
-    customerRepository.getAllCustomers().then((data) => {
-      if (data) setCustomers(data);
-    });
-
-    // 💾 자주 쓰는 템플릿(상용구) 로컬스토리지 캐시 로드
-    const cachedTemplates = localStorage.getItem('local_saved_templates');
-    if (cachedTemplates) {
-      try {
-        setTemplates(JSON.parse(cachedTemplates));
-      } catch (e) {
-        console.error('로컬 템플릿 로드 에러:', e);
-      }
-    } else {
-      // 기본 템플릿 프리셋 설정
-      const defaultPresets: SavedTemplate[] = [
-        {
-          id: 'tmpl-preset-1',
-          template_title: '[부재중] 1차 안내 안내톡',
-          content: '안녕하세요. ZMS 주차 고객센터입니다. 전화주셨으나 연결되지 않아 문자 남깁니다. 상담이 필요하시면 주차 희망 지점과 차량번호를 기재하여 답신 부탁드립니다.',
-          created_by: '시스템',
-        },
-        {
-          id: 'tmpl-preset-2',
-          template_title: '[결제] 월주차 신규 결제 요청 문구',
-          content: '안녕하세요. 월주차 등록 결제 링크 안내드립니다. 신용카드 간편결제 완료 후 입차가 가능하오니 링크 클릭 후 진행 바랍니다.',
-          created_by: '시스템',
-        }
-      ];
-      setTemplates(defaultPresets);
-      localStorage.setItem('local_saved_templates', JSON.stringify(defaultPresets));
-    }
-
-    // 💾 AgentTasks 로컬스토리지 캐시 로드
-    const cachedTasks = localStorage.getItem('local_agent_tasks');
-    if (cachedTasks) {
-      try {
-        setTasks(JSON.parse(cachedTasks));
-      } catch (e) {
-        console.error('로컬 Tasks 로드 에러:', e);
-      }
-    }
-
     const unsubscribe = consultationRepository.subscribeConsultationRealtime((updatedData) => {
       if (Array.isArray(updatedData)) {
         setConsultations(updatedData);
@@ -123,7 +117,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     });
 
     return () => unsubscribe();
-  }, [currentAgent]);
+  }, []);
 
   const createFreshCustomer = (): Customer => ({
     id: generateUUID(),
@@ -485,14 +479,25 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       };
     }
 
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('agent_tasks').upsert([newTask]).then(({ error }) => {
+        if (error) console.error('[handleAddTask] Supabase DB 오류:', error.message);
+      });
+    }
+
     setTasks((prev) => {
       const updated = [newTask, ...prev];
       localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
       return updated;
     });
   };
-  
+
   const handleToggleTask = (taskId: string) => {
+    const target = tasks.find((t) => t.id === taskId);
+    if (target && isSupabaseConfigured() && supabase) {
+      supabase.from('agent_tasks').update({ is_completed: !target.is_completed }).eq('id', taskId).then();
+    }
+
     setTasks((prev) => {
       const updated = prev.map((t) => (t.id === taskId ? { ...t, is_completed: !t.is_completed } : t));
       localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
@@ -501,6 +506,10 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   };
 
   const handleDeleteTask = (taskId: string) => {
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('agent_tasks').delete().eq('id', taskId).then();
+    }
+
     setTasks((prev) => {
       const updated = prev.filter((t) => t.id !== taskId);
       localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
@@ -509,6 +518,10 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   };
 
   const handleReassignTask = (taskId: string, newAgentName: string) => {
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('agent_tasks').update({ agent_name: newAgentName }).eq('id', taskId).then();
+    }
+
     setTasks((prev) => {
       const updated = prev.map((t) =>
         t.id === taskId ? { ...t, agent_name: newAgentName } : t
@@ -527,6 +540,15 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       due_date?: string;
     }
   ) => {
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('agent_tasks').update({
+        task_title: updatedInput.task_title,
+        agent_name: updatedInput.agent_name,
+        tag: updatedInput.tag,
+        due_date: updatedInput.due_date,
+      }).eq('id', taskId).then();
+    }
+
     setTasks((prev) => {
       const updated = prev.map((t) =>
         t.id === taskId
