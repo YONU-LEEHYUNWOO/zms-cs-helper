@@ -76,12 +76,20 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     }
   }, []);
 
+  const fetchCustomers = useCallback(() => {
+    customerRepository.getAllCustomers().then((data) => {
+      if (data) setCustomers(data);
+    });
+  }, []);
+
   useEffect(() => {
     fetchAgents();
     fetchTasks();
+    fetchCustomers();
 
     let agentChannel: any = null;
     let taskChannel: any = null;
+    let customerChannel: any = null;
 
     if (isSupabaseConfigured() && supabase) {
       agentChannel = supabase
@@ -97,17 +105,21 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
           fetchTasks();
         })
         .subscribe();
+
+      customerChannel = supabase
+        .channel('public:customers_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+          fetchCustomers();
+        })
+        .subscribe();
     }
 
     return () => {
-      if (agentChannel && supabase) {
-        supabase.removeChannel(agentChannel);
-      }
-      if (taskChannel && supabase) {
-        supabase.removeChannel(taskChannel);
-      }
+      if (agentChannel && supabase) supabase.removeChannel(agentChannel);
+      if (taskChannel && supabase) supabase.removeChannel(taskChannel);
+      if (customerChannel && supabase) supabase.removeChannel(customerChannel);
     };
-  }, [fetchAgents, fetchTasks]);
+  }, [fetchAgents, fetchTasks, fetchCustomers]);
 
   useEffect(() => {
     const unsubscribe = consultationRepository.subscribeConsultationRealtime((updatedData) => {
