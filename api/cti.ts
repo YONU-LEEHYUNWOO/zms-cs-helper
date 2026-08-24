@@ -1,5 +1,7 @@
-import { GoogleGenAI } from '@google/genai';
-import { ctiCollectorService } from '../src/backend/services/cti/ctiCollectorService';
+/**
+ * api/cti.ts - CTI 크롤링 & Gemini AI 분석 서버리스 함수 (Vercel)
+ * 중요: top-level import 대신 동적 import 사용 - FUNCTION_INVOCATION_FAILED 방지
+ */
 
 export const config = {
   maxDuration: 60,
@@ -15,7 +17,7 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  // 전역 에러 캐처: 500 발생 시 실제 오류 메시지를 JSON으로 노출
+  // 전역 에러 캐처: 모듈 로드 실패 포함 모든 에러를 JSON으로 노출
   try {
     return await handleCtiRequest(req, res);
   } catch (globalErr: any) {
@@ -29,7 +31,12 @@ export default async function handler(req: any, res: any) {
 }
 
 async function handleCtiRequest(req: any, res: any) {
+  // 동적 import: 모듈 로드 실패 시 globalErr로 캐치되어 JSON 에러 반환
+  const { GoogleGenAI } = await import('@google/genai');
+  const { ctiCollectorService } = await import('../src/backend/services/cti/ctiCollectorService');
+
   // 1. 요청 바디 안전 파싱
+
   let body = req.body;
   if (typeof body === 'string') {
     try {
