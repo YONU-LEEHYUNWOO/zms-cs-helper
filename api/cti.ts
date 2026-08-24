@@ -1,6 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { ctiCollectorService } from '../src/backend/services/cti/ctiCollectorService';
 
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req: any, res: any) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');

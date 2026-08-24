@@ -58,10 +58,44 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         .from('agent_tasks')
         .select('*')
         .order('created_at', { ascending: false })
-        .then(({ data, error }) => {
+        .then(async ({ data, error }) => {
           if (!error && data) {
-            setTasks(data as AgentTask[]);
-            localStorage.setItem('local_agent_tasks', JSON.stringify(data));
+            if (data.length === 0) {
+              const defaultInitialTasks: AgentTask[] = [
+                {
+                  id: generateUUID(),
+                  task_title: '강남역 주차장 차단기 원격개방 리마인더',
+                  agent_name: '이현우',
+                  is_completed: false,
+                  created_at: new Date().toISOString(),
+                  tag: '리마인더',
+                  due_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+                },
+                {
+                  id: generateUUID(),
+                  task_title: '홍길동 고객님 월주차 결제 링크 재발송 건',
+                  agent_name: '이현우',
+                  is_completed: false,
+                  created_at: new Date(Date.now() - 3600000).toISOString(),
+                  tag: '결제환불확인',
+                  due_date: new Date().toISOString().split('T')[0],
+                },
+                {
+                  id: generateUUID(),
+                  task_title: '정기권 차량 등록 정보 오탈자 검수 완료',
+                  agent_name: '이현우',
+                  is_completed: true,
+                  created_at: new Date(Date.now() - 7200000).toISOString(),
+                  tag: '개인메모',
+                },
+              ];
+              await supabase.from('agent_tasks').upsert(defaultInitialTasks);
+              setTasks(defaultInitialTasks);
+              localStorage.setItem('local_agent_tasks', JSON.stringify(defaultInitialTasks));
+            } else {
+              setTasks(data as AgentTask[]);
+              localStorage.setItem('local_agent_tasks', JSON.stringify(data));
+            }
           }
         });
     } else {
@@ -703,31 +737,18 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     const cleanAgentName = newAgentData.agent_name.trim();
 
     if (isSupabaseConfigured() && supabase) {
-      // 1. Supabase Auth 회원가입 연동 (실제 로그인 가능한 계정 생성)
-      const { data, error: authErr } = await supabase.auth.signUp({
-        email: targetEmail,
-        password: newAgentData.password_hash || '12341234',
-        options: {
-          data: {
-            agent_name: cleanAgentName,
-            team_name: newAgentData.team_name || 'CS 1팀',
-            extension_number: newAgentData.extension_number || '',
-            phone_number: newAgentData.phone_number || '',
-            role: newAgentData.role || 'AGENT',
-          },
-        },
-      });
+      // 1. 기존 DB에 동일 이메일/이름이 있는지 먼저 확인하여 ID 유지
+      const { data: existingAgent } = await supabase
+        .from('internal_agents')
+        .select('*')
+        .or(`email.eq.${targetEmail},agent_name.eq.${cleanAgentName}`)
+        .maybeSingle();
 
-      if (authErr && !authErr.message.includes('already registered')) {
-        console.error('[registerNewAgent] Supabase Auth signUp 오류:', authErr.message);
-        throw new Error(`Supabase Auth 가입 실패: ${authErr.message}`);
+      if (existingAgent) {
+        createdAgentId = existingAgent.id;
       }
 
-      if (data?.user) {
-        createdAgentId = data.user.id;
-      }
-
-      // 2. internal_agents 마스터 DB 테이블 생성 및 동기화
+      // 2. internal_agents 마스터 DB에 무조건 최우선 저장하여 상담사 명단 표출 보장
       const newAgent: InternalAgent = {
         id: createdAgentId,
         email: targetEmail,
@@ -737,18 +758,43 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         phone_number: newAgentData.phone_number || '',
         role: newAgentData.role || 'AGENT',
         agent_status: '활성화',
-        created_at: new Date().toISOString(),
+        created_at: existingAgent?.created_at || new Date().toISOString(),
       };
 
-      const { error: dbError } = await supabase.from('internal_agents').upsert([newAgent], { onConflict: 'email' });
+      const { error: dbError } = await supabase.from('internal_agents').upsert([newAgent]);
       if (dbError) {
         console.error('[registerNewAgent] Supabase DB 오류:', dbError.message);
         throw new Error(`상담원 DB 저장 실패: ${dbError.message}`);
       }
 
+      // 3. Supabase Auth 가입 연동 (실패하거나 이메일 컨펌 대기중이어도 DB 저장은 유지)
+      try {
+        const { data: authData } = await supabase.auth.signUp({
+          email: targetEmail,
+          password: newAgentData.password_hash || '12341234',
+          options: {
+            data: {
+              agent_name: cleanAgentName,
+              team_name: newAgentData.team_name || 'CS 1팀',
+              extension_number: newAgentData.extension_number || '',
+              phone_number: newAgentData.phone_number || '',
+              role: newAgentData.role || 'AGENT',
+            },
+          },
+        });
+
+        if (authData?.user) {
+          // Auth user ID와 DB user ID 동기화
+          await supabase.from('internal_agents').update({ id: authData.user.id }).eq('email', targetEmail);
+          newAgent.id = authData.user.id;
+        }
+      } catch (authException: any) {
+        console.warn('[registerNewAgent] Supabase Auth signUp 경고 (DB 저장은 보장됨):', authException?.message);
+      }
+
       setAgents((prev) => {
         const exists = prev.some((a) => a.id === newAgent.id || a.email === newAgent.email || a.agent_name === newAgent.agent_name);
-        return exists ? prev.map((a) => (a.id === newAgent.id || a.email === newAgent.email ? newAgent : a)) : [...prev, newAgent];
+        return exists ? prev.map((a) => (a.email === newAgent.email || a.agent_name === newAgent.agent_name ? newAgent : a)) : [...prev, newAgent];
       });
 
       fetchAgents();
