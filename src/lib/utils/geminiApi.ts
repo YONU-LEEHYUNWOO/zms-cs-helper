@@ -124,12 +124,13 @@ async function callGeminiAudioApi(
 }
 
 /**
- * 저장된 Gemini API Key 조회 (상담사 계정별 / 환경변수 / 로컬 스토리지)
+ * 저장된 Gemini API Key 조회 (상담사 계정별 엄격 격리)
+ * - agentName이 지정되면 해당 상담사 전용 저장소(gemini_api_key_${agentName})만 참조하며, 타 계정 키 유출/혼용 방지를 위해 글로벌 키로 폴백하지 않습니다.
  */
 export function getStoredGeminiApiKey(agentName?: string): string {
-  if (agentName) {
-    const userKey = localStorage.getItem(`gemini_api_key_${agentName}`);
-    if (userKey) return userKey.trim();
+  if (agentName && agentName.trim()) {
+    const userKey = localStorage.getItem(`gemini_api_key_${agentName.trim()}`);
+    return userKey ? userKey.trim() : '';
   }
   return (
     localStorage.getItem('gemini_api_key') ||
@@ -140,16 +141,19 @@ export function getStoredGeminiApiKey(agentName?: string): string {
 }
 
 /**
- * Gemini API Key 로컬 스토리지에 저장 (상담사 계정별 세션 동기화)
+ * Gemini API Key 로컬 스토리지에 저장 (상담사 계정별 엄격 격리)
+ * - agentName이 지정된 경우 오직 해당 상담사 전용 키(gemini_api_key_${agentName})로만 저장하며 타 계정이 참조하지 않도록 보장합니다.
  */
 export function setStoredGeminiApiKey(key: string, agentName?: string): void {
   const cleanKey = key ? key.trim() : '';
-  if (agentName) {
+  if (agentName && agentName.trim()) {
+    const keyName = `gemini_api_key_${agentName.trim()}`;
     if (cleanKey) {
-      localStorage.setItem(`gemini_api_key_${agentName}`, cleanKey);
+      localStorage.setItem(keyName, cleanKey);
     } else {
-      localStorage.removeItem(`gemini_api_key_${agentName}`);
+      localStorage.removeItem(keyName);
     }
+    return;
   }
   if (cleanKey) {
     localStorage.setItem('gemini_api_key', cleanKey);

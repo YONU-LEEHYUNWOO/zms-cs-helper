@@ -49,7 +49,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
   const [ctiSessionCookieInput, setCtiSessionCookieInput] = useState<string>(() => localStorage.getItem('cti_session_cookie') || '');
   const [isTestingLogin, setIsTestingLogin] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
-  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getStoredGeminiApiKey());
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getStoredGeminiApiKey(agentName));
   const [showApiKeyConfig, setShowApiKeyConfig] = useState<boolean>(false);
   const [showCtiAccountConfig, setShowCtiAccountConfig] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -96,7 +96,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
   // AI CS 분석 모드 설정 ('metadata': 기본 CS 5줄 요약, 'stt': 상세 STT 및 오디오 분석)
   const [analysisMode, setAnalysisMode] = useState<'metadata' | 'stt'>('metadata');
 
-  // 고객 전화번호 전달 시 100% 자동 프리필 (Pre-fill)
+  // 고객 전화번호 전달 시 100% 자동 프리필 (Pre-fill) 및 상담사 계정별 API Key 동기화
   useEffect(() => {
     if (isOpen) {
       const clean = (customerPhone || '').replace(/[^0-9]/g, '');
@@ -108,8 +108,9 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
             : clean;
         setPhoneInput(formatted);
       }
+      setApiKeyInput(getStoredGeminiApiKey(agentName));
     }
-  }, [isOpen, customerPhone]);
+  }, [isOpen, customerPhone, agentName]);
 
   if (!isOpen) return null;
 
