@@ -238,7 +238,7 @@ async function handleCtiRequest(req: any, res: any) {
 - 통화시간 및 상태: ${targetRecord.durationStr} (${targetRecord.statusText})
 출력은 반드시 다른 마크다운 기호 없이 한글 요약 본문만 반환해 주세요.`;
 
-          const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+          const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'];
           let isKeyBlocked = false;
           for (const m of modelCandidates) {
             try {
@@ -267,7 +267,7 @@ async function handleCtiRequest(req: any, res: any) {
           const isWav = targetRecord.filename?.endsWith('.wav');
           const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
 
-          const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+          const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'];
           let isKeyBlocked = false;
           for (const m of modelCandidates) {
             try {
