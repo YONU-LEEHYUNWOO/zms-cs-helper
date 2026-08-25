@@ -10,7 +10,7 @@
 
 import React, { useMemo } from 'react';
 import {
-  X, History, Clock, User, Phone, Car, Tag, FileText, CheckCircle2,
+  X, History, Clock, User, UserCheck, Phone, Car, Tag, FileText, CheckCircle2,
   AlertCircle, MessageSquare, ShieldAlert, ArrowRight, Sparkles, ChevronRight
 } from 'lucide-react';
 import { Consultation, InternalAgent } from '../../../backend/types';
@@ -31,6 +31,7 @@ interface CustomerHistoryTimelineModalProps {
 export const CustomerHistoryTimelineModal: React.FC<CustomerHistoryTimelineModalProps> = ({
   isOpen,
   onClose,
+  customerId,
   carNumber = '',
   phoneNumber = '',
   customerName = '',
@@ -40,21 +41,37 @@ export const CustomerHistoryTimelineModal: React.FC<CustomerHistoryTimelineModal
 }) => {
   if (!isOpen) return null;
 
-  const cleanTargetPhone = phoneNumber.replace(/[^0-9]/g, '');
-  const cleanTargetCar = carNumber.trim();
+  const cleanTargetPhone = (phoneNumber || '').replace(/[^0-9]/g, '');
+  const cleanTargetCar = (carNumber || '').replace(/[^0-9a-zA-Z가-힣]/g, '').toUpperCase();
 
-  // 매칭되는 고객 과거 상담 이력 필터링 (최신순 정렬)
+  // 매칭되는 고객 과거 상담 이력 필터링 (전체 관련 필드 통합 수집 및 최신순 정렬)
   const matchedConsultations = useMemo(() => {
+    if (!cleanTargetPhone && !cleanTargetCar && !customerId) return [];
+
     return consultations.filter((c) => {
-      const cCar = c.customers?.car_number || '';
-      const cPhone = c.customers?.phone_number || '';
-      
-      const phoneMatch = cleanTargetPhone && cPhone.replace(/[^0-9]/g, '').includes(cleanTargetPhone);
-      const carMatch = cleanTargetCar && cCar.includes(cleanTargetCar);
+      // 1. 고객 ID 직접 매칭
+      if (customerId && c.customer_id === customerId) return true;
+
+      // 2. 상담건 관련 연락처 집합 추출
+      const phoneList = [
+        c.user_phone,
+        c.owner_phone,
+        c.phone_number,
+        c.customers?.phone_number,
+      ].map((p) => (p || '').replace(/[^0-9]/g, '')).filter(Boolean);
+
+      // 3. 상담건 관련 차량번호 집합 추출
+      const carList = [
+        c.car_number,
+        c.customers?.car_number,
+      ].map((cr) => (cr || '').replace(/[^0-9a-zA-Z가-힣]/g, '').toUpperCase()).filter(Boolean);
+
+      const phoneMatch = cleanTargetPhone.length >= 3 && phoneList.some((p) => p.includes(cleanTargetPhone) || cleanTargetPhone.includes(p));
+      const carMatch = cleanTargetCar.length >= 2 && carList.some((cr) => cr.includes(cleanTargetCar) || cleanTargetCar.includes(cr));
 
       return Boolean(phoneMatch || carMatch);
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [consultations, cleanTargetPhone, cleanTargetCar]);
+  }, [consultations, customerId, cleanTargetPhone, cleanTargetCar]);
 
   const displayCar = maskTempCarNumber(carNumber) || '차량번호 미등록';
   const displayPhone = maskTempPhoneNumber(phoneNumber) || '연락처 미등록';
@@ -136,7 +153,8 @@ export const CustomerHistoryTimelineModal: React.FC<CustomerHistoryTimelineModal
           ) : (
             <div className="relative pl-6 space-y-6 before:absolute before:left-[15px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
               {matchedConsultations.map((item, index) => {
-                const assignedAgentName = item.assigned_agent_name || '미배정';
+                const registeredAgentName = item.agent_name || '미지정';
+                const assignedAgentName = item.assigned_agent_name;
                 const createdDate = new Date(item.created_at);
                 const formattedDate = createdDate.toLocaleString('ko-KR', {
                   year: 'numeric',
@@ -179,8 +197,15 @@ export const CustomerHistoryTimelineModal: React.FC<CustomerHistoryTimelineModal
                         <div className="flex items-center gap-2">
                           <span className="bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1">
                             <User className="w-3.5 h-3.5 text-blue-600" />
-                            <span>{assignedAgentName} 상담사</span>
+                            <span>👤 {registeredAgentName} 상담사</span>
                           </span>
+
+                          {assignedAgentName && assignedAgentName !== registeredAgentName && (
+                            <span className="bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                              <UserCheck className="w-3.5 h-3.5 text-purple-600" />
+                              <span>담당: {assignedAgentName}</span>
+                            </span>
+                          )}
 
                           {onSelectConsultation && (
                             <button

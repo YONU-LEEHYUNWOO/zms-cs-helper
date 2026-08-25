@@ -106,21 +106,36 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
     setTimeout(() => setSaveToast(null), 2000);
   };
 
-  // 과거 상담 이력 건수 계산
+  // 과거 상담 이력 건수 계산 (전체 필드 통합 매칭)
   const historyCount = useMemo(() => {
     if (!consultations || consultations.length === 0) return 0;
     const cleanPhone = (customer.phone_number || '').replace(/[^0-9]/g, '');
-    const cleanCar = (customer.car_number || '').trim();
-    if (!cleanPhone && !cleanCar) return 0;
+    const cleanCar = (customer.car_number || '').replace(/[^0-9a-zA-Z가-힣]/g, '').toUpperCase();
+    const custId = customer.id;
+
+    if (!cleanPhone && !cleanCar && !custId) return 0;
 
     return consultations.filter((c) => {
-      const cCar = c.customers?.car_number || '';
-      const cPhone = c.customers?.phone_number || '';
-      const pMatch = cleanPhone && cPhone.replace(/[^0-9]/g, '').includes(cleanPhone);
-      const cMatch = cleanCar && cCar.includes(cleanCar);
+      if (custId && c.customer_id === custId) return true;
+
+      const phoneList = [
+        c.user_phone,
+        c.owner_phone,
+        c.phone_number,
+        c.customers?.phone_number,
+      ].map((p) => (p || '').replace(/[^0-9]/g, '')).filter(Boolean);
+
+      const carList = [
+        c.car_number,
+        c.customers?.car_number,
+      ].map((cr) => (cr || '').replace(/[^0-9a-zA-Z가-힣]/g, '').toUpperCase()).filter(Boolean);
+
+      const pMatch = cleanPhone.length >= 3 && phoneList.some((p) => p.includes(cleanPhone) || cleanPhone.includes(p));
+      const cMatch = cleanCar.length >= 2 && carList.some((cr) => cr.includes(cleanCar) || cleanCar.includes(cr));
+
       return Boolean(pMatch || cMatch);
     }).length;
-  }, [consultations, customer.phone_number, customer.car_number]);
+  }, [consultations, customer.id, customer.phone_number, customer.car_number]);
 
   // 다른 상담원이 현재 편집 중인지 (Soft Lock)
   const activeLockHolder = useMemo(() => {
@@ -599,6 +614,7 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
       <CustomerHistoryTimelineModal
         isOpen={showTimelineModal}
         onClose={() => setShowTimelineModal(false)}
+        customerId={customer?.id}
         carNumber={customer?.car_number}
         phoneNumber={customer?.phone_number}
         customerName={customer?.name}
