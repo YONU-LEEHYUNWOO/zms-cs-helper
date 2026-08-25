@@ -297,11 +297,16 @@ async function handleCtiRequest(req: any, res: any) {
       }
     }
 
+    const formattedReport = summaries.join('\n');
+
     return res.json({
       success: true,
       records,
       selectedRecord: targetRecord,
-      summary: summaries.join('\n'),
+      record: targetRecord,
+      summary: formattedReport,
+      formattedReport,
+      summaries,
       keyIssues,
       sentiment,
       sttScript,
@@ -309,7 +314,10 @@ async function handleCtiRequest(req: any, res: any) {
       sessionCookie: cookies,
     });
   } catch (err: any) {
-    console.error('[Vercel CTI Handler Error]:', err);
-    return res.status(200).json({ success: false, message: err?.message || String(err) });
+    console.error('[Vercel CTI Main Handler Error]:', err);
+    return res.status(500).json({
+      success: false,
+      message: `CTI 파이프라인 처리 중 에러 발생: ${err?.message || err}`,
+    });
   }
 }

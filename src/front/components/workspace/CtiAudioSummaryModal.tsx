@@ -402,24 +402,27 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
           );
         }
 
+        const reportText = data.formattedReport || data.summary || (Array.isArray(data.summaries) ? data.summaries.join('\n') : '');
+        const filename = data.record?.filename || data.selectedRecord?.filename || 'cti_auto_record.mp3';
+
         if (onlyMetadata) {
           // 1) 기본 메타데이터 요약 모드: 결과를 즉시 메모장에 반영하고 모달 닫기
           onApplySummaryToNotes(
-            data.formattedReport,
+            reportText,
             data.sttScript,
-            data.record?.filename || 'cti_auto_record.mp3',
+            filename,
             0
           );
           onClose();
         } else {
           // 2) 상세 STT 모드: 모달 내부 상태에 임시 저장하고 화면에 대화록 노출
           setAudioAnalysisResult({
-            summaries: data.summaries || [],
+            summaries: data.summaries || [reportText],
             sttScript: data.sttScript || '',
             keyIssues: data.keyIssues || '',
             sentiment: data.sentiment || '',
-            formattedReport: data.formattedReport || '',
-            filename: data.record?.filename || 'cti_auto_record.mp3',
+            formattedReport: reportText,
+            filename: filename,
           });
           setToastMessage('✅ 상세 STT 대화록 추출이 성공적으로 완료되었습니다! 아래 결과를 확인한 뒤 반영해 주세요.');
         }
