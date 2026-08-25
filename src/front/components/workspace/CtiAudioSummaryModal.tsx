@@ -13,7 +13,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Mic, ExternalLink, Upload, Sparkles,
-  X, AlertCircle, Loader2, PhoneCall, Download, Search, PhoneIncoming, PhoneOutgoing, PlayCircle, Key, Lock, User, Terminal, FileText, Copy, Check, Code, Zap
+  X, AlertCircle, CheckCircle2, Loader2, PhoneCall, Download, Search, PhoneIncoming, PhoneOutgoing, PlayCircle, Key, Lock, User, Terminal, FileText, Copy, Check, Code, Zap
 } from 'lucide-react';
 import { getStoredGeminiApiKey, setStoredGeminiApiKey, analyzeCtiAudioCallLog } from '../../../lib/utils/geminiApi';
 import { CtiCallRecord } from '../../../backend/services/cti/ctiCollectorService';
@@ -64,6 +64,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
   const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([]);
   const [rawHtmlText, setRawHtmlText] = useState<string>('');
   const [showRawHtmlModal, setShowRawHtmlModal] = useState<boolean>(false);
+  const [showDiagnosticLogsModal, setShowDiagnosticLogsModal] = useState<boolean>(false);
   const [isCopiedRaw, setIsCopiedRaw] = useState<boolean>(false);
   // 직접 MP3 링크 열기 버튼 로딩 상태 (Rules of Hooks: early return 이전에 선언)
   const [isLoadingMp3Link, setIsLoadingMp3Link] = useState<boolean>(false);
@@ -335,6 +336,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
       setIsAnalyzingAudio(true);
     }
     setToastMessage(null);
+    setDiagnosticLogs([`[1단계] CTI AI 분석 요청 시작 (${new Date().toLocaleTimeString()})`]);
 
     try {
       // 선택된 레코드에서 이미 추출된 실제 fullUrl이 있으면 전달
@@ -342,6 +344,12 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
       const preKnownMp3Url = selectedRec?.fullUrl && !selectedRec.fullUrl.includes('20520896') && !selectedRec.fullUrl.endsWith('00.mp3') ? selectedRec.fullUrl : undefined;
 
       const apiKey = apiKeyInput.trim() || getStoredGeminiApiKey(agentName);
+
+      if (!apiKey) {
+        setDiagnosticLogs(prev => [...prev, '⚠️ [주의] Gemini API 키가 지정되지 않았습니다. [🔑 Gemini API Key 설정]에 키를 입력하여 저장해 주세요.']);
+      } else {
+        setDiagnosticLogs(prev => [...prev, `✅ [Gemini Key 확인] 키 길이: ${apiKey.length}자 (${apiKey.slice(0, 6)}...)`]);
+      }
 
       const payload = {
         phoneNumber: targetPhone,
@@ -362,6 +370,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
 
       let response: Response;
       try {
+        setDiagnosticLogs(prev => [...prev, '[2단계] Vercel 백엔드 /api/cti/process-recording 호스팅 요청 전송...']);
         response = await fetch('/api/cti/process-recording', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -370,6 +379,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
         });
 
         if (response.status === 404) {
+          setDiagnosticLogs(prev => [...prev, '⚠️ [/api/cti 404 감지: 로컬 개발 서버 폴백 시도...]']);
           response = await fetch('http://localhost:3000/api/cti/process-recording', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -377,6 +387,11 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
             signal: controller.signal,
           });
         }
+      } catch (netErr: any) {
+        const netMsg = netErr.name === 'AbortError' ? '네트워크 응답 시간 초과 (45초 타임아웃)' : netErr.message;
+        setDiagnosticLogs(prev => [...prev, `❌ [네트워크 통신 오류]: ${netMsg}`]);
+        setToastMessage(`⚠️ CTI 백엔드 통신 에러: ${netMsg}`);
+        return;
       } finally {
         clearTimeout(timeoutId);
       }
@@ -386,11 +401,13 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
       try {
         data = JSON.parse(responseText);
       } catch {
-        setToastMessage('⚠️ AI 분석 응답을 처리하는 도중 오류가 발생했습니다.');
+        const errSnippet = responseText.slice(0, 250);
+        setDiagnosticLogs(prev => [...prev, `❌ [JSON 파싱 실패 (HTTP ${response.status})]: ${errSnippet}`]);
+        setToastMessage(`⚠️ 서버 응답 에러 (HTTP ${response.status}): ${errSnippet}`);
         return;
       }
 
-      if (data.logs) {
+      if (data.logs && Array.isArray(data.logs)) {
         setDiagnosticLogs(data.logs);
       }
 
@@ -427,10 +444,13 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
           setToastMessage('✅ 상세 STT 대화록 추출이 성공적으로 완료되었습니다! 아래 결과를 확인한 뒤 반영해 주세요.');
         }
       } else {
-        setToastMessage(`⚠️ ${data.message || '선택한 녹취 분석에 실패했습니다.'}`);
+        const failMsg = data.message || '선택한 녹취 분석에 실패했습니다.';
+        setDiagnosticLogs(prev => [...prev, `❌ [분석 실패]: ${failMsg}`]);
+        setToastMessage(`⚠️ ${failMsg}`);
       }
     } catch (e: any) {
-      setToastMessage(`⚠️ AI 분석 오류: ${e.message}`);
+      setDiagnosticLogs(prev => [...prev, `❌ [예외 오류]: ${e.message}`]);
+      setToastMessage(`⚠️ AI 분석 중 오류가 발생했습니다: ${e.message}`);
     } finally {
       setIsAnalyzing(false);
       setIsAnalyzingAudio(false);
@@ -642,6 +662,13 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
               <span>🔑 Gemini API Key 설정</span>
             </button>
             <button
+              onClick={() => setShowDiagnosticLogsModal(true)}
+              className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+            >
+              <Terminal className="w-3 h-3 text-indigo-600" />
+              <span>📋 진단 로그 ({diagnosticLogs.length}건)</span>
+            </button>
+            <button
               onClick={handleOpenCtiServer}
               className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
             >
@@ -650,6 +677,39 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* 📢 토스트 및 시스템 에러 알림 바 */}
+        {toastMessage && (
+          <div className={`px-6 py-2.5 text-xs font-bold flex items-center justify-between gap-2 border-b animate-in fade-in duration-150 ${
+            toastMessage.startsWith('✅')
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+              : toastMessage.startsWith('⚠️') || toastMessage.startsWith('❌')
+                ? 'bg-rose-50 text-rose-900 border-rose-200'
+                : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              {toastMessage.startsWith('✅') ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{toastMessage}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {diagnosticLogs.length > 0 && (
+                <button
+                  onClick={() => setShowDiagnosticLogsModal(true)}
+                  className="text-[11px] underline text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer"
+                >
+                  [📋 진단 로그 뷰어 열기]
+                </button>
+              )}
+              <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 🔑 Gemini API Key 설정 & Google AI Studio 무료 발급 가이드 팝업 */}
         {showApiKeyConfig && (
@@ -867,7 +927,6 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
               </button>
             </div>
           </div>
-
         </div>
 
         {/* 📄 CTI 서버 수신 Raw HTML 원문 보기 모달 */}
@@ -952,7 +1011,94 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
             </div>
           </div>
         )}
+        {/* 📋 CTI & Gemini AI 실시간 진단 로그 뷰어 모달 */}
+        {showDiagnosticLogsModal && (
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+            onClick={() => setShowDiagnosticLogsModal(false)}
+          >
+            <div
+              className="bg-slate-900 text-slate-100 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-700 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 모달 헤더 */}
+              <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2">
+                    <span>📋 CTI 크롤링 & Gemini AI 실시간 진단 로그</span>
+                    <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-[11px] font-mono">
+                      총 {diagnosticLogs.length}건
+                    </span>
+                  </h3>
+                </div>
 
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(diagnosticLogs.join('\n'));
+                      setIsCopiedRaw(true);
+                      setTimeout(() => setIsCopiedRaw(false), 2000);
+                    }}
+                    className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isCopiedRaw ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">복사 완료!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>📋 로그 전체 복사</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setShowDiagnosticLogsModal(false)}
+                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 모달 내용 */}
+              <div className="p-5 flex-1 overflow-y-auto custom-scroll bg-slate-950 space-y-2 font-mono text-xs">
+                {diagnosticLogs.length === 0 ? (
+                  <p className="text-slate-500 text-center py-6">수집된 진단 로그가 없습니다. CTI 검색 또는 AI 분석을 실행해 주세요.</p>
+                ) : (
+                  diagnosticLogs.map((logLine, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-2.5 rounded-lg text-[11px] leading-relaxed select-text ${
+                        logLine.includes('❌') || logLine.includes('⚠️') || logLine.includes('실패') || logLine.includes('에러')
+                          ? 'bg-rose-950/60 text-rose-300 border border-rose-900/60 font-bold'
+                          : logLine.includes('✅') || logLine.includes('성공')
+                            ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-900/60 font-bold'
+                            : 'bg-slate-900 text-slate-300 border border-slate-800'
+                      }`}
+                    >
+                      {logLine}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* 모달 푸터 */}
+              <div className="px-6 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                <span>Vercel Serverless /api/cti & Client Gemini API Diagnostic Trace</span>
+                <button
+                  onClick={() => setShowDiagnosticLogsModal(false)}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      );
+  );
 };
