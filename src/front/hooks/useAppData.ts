@@ -249,10 +249,16 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     consultation?: Consultation;
   } | null>(null);
 
+  // 전 전체 상담 마스터 데이터 (90일 보관 여부 무관)
+  const allConsultations = consultations;
+
   const activeConsultation: Consultation = useMemo(() => {
     if (selectedConsultationId) {
-      const found = consultations.find((c) => c.id === selectedConsultationId);
-      if (found) return draftStatus ? { ...found, status: draftStatus } : found;
+      const found = allConsultations.find((c) => c.id === selectedConsultationId);
+      if (found) {
+        const merged = { ...found, summary: notes || found.summary || found.consultation_notes || '' };
+        return draftStatus ? { ...merged, status: draftStatus } : merged;
+      }
     }
 
     // 선택된 기존 상담 ID가 없을 때는 무조건 신규 드래프트(newConsultationId) 반환 (기존 상담 자동 덮어쓰기 방지)
@@ -272,7 +278,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-  }, [selectedConsultationId, consultations, selectedCustomer, currentAgentName, notes, draftStatus, newConsultationId]);
+  }, [selectedConsultationId, allConsultations, selectedCustomer, currentAgentName, notes, draftStatus, newConsultationId]);
 
   const isExistingConsultation = useMemo(() => {
     return !!selectedConsultationId && consultations.some((c) => c.id === selectedConsultationId);
@@ -320,7 +326,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     setSelectedCustomer(matchCust);
     if (matchCons) {
       setSelectedConsultationId(matchCons.id);
-      setNotes(matchCons.summary || '');
+      setNotes(matchCons.summary || matchCons.consultation_notes || '');
       setIsForceNewConsultation(false);
     } else {
       setSelectedConsultationId(null);
@@ -344,7 +350,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   }, []);
 
   const handleSelectConsultation = async (consId: string) => {
-    const targetCons = consultations.find((c) => c.id === consId);
+    const targetCons = allConsultations.find((c) => c.id === consId);
     if (!targetCons) return;
     
     setSelectedConsultationId(consId);
@@ -367,7 +373,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       }
     }
     
-    setNotes(targetCons.summary || '');
+    setNotes(targetCons.summary || targetCons.consultation_notes || '');
     setIsForceNewConsultation(false);
   };
 
@@ -999,8 +1005,6 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   };
 
   // 📦 90일 경과 완료건 필터링 계산
-  const allConsultations = consultations;
-
   const activeConsultations = useMemo(() => {
     if (showOlderArchive) return allConsultations;
     return allConsultations.filter((c) => !isOlderArchivedConsultation(c));
