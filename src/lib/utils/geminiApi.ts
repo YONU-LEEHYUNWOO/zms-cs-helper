@@ -51,10 +51,10 @@ async function callGeminiAudioApi(
   contextPrompt: string
 ): Promise<string> {
   const modelCandidates = [
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-1.5-flash',
+    'gemini-2.0-flash-exp',
   ];
 
   let lastError: Error | null = null;
@@ -102,6 +102,9 @@ async function callGeminiAudioApi(
       if (!response.ok) {
         const errorText = await response.text();
         console.warn(`Gemini 모델 [${modelName}] 호출 실패 (${response.status}):`, errorText);
+        if (errorText.includes('leaked') || errorText.includes('PERMISSION_DENIED') || response.status === 403) {
+          throw new Error('🚨 입력하신 Gemini API Key가 Google에 의해 유출(Leaked) 위험으로 차단되었습니다. https://aistudio.google.com/app/apikey 에서 새로운 무료 API Key를 발급받아 등록해 주세요.');
+        }
         lastError = new Error(`API ${response.status}: ${errorText}`);
         continue;
       }

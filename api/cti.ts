@@ -238,7 +238,8 @@ async function handleCtiRequest(req: any, res: any) {
 - 통화시간 및 상태: ${targetRecord.durationStr} (${targetRecord.statusText})
 출력은 반드시 다른 마크다운 기호 없이 한글 요약 본문만 반환해 주세요.`;
 
-          const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+          const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+          let isKeyBlocked = false;
           for (const m of modelCandidates) {
             try {
               const aiRes = await ai.models.generateContent({ model: m, contents: textPrompt });
@@ -248,7 +249,13 @@ async function handleCtiRequest(req: any, res: any) {
                 break;
               }
             } catch (mErr: any) {
-              logs.push(`⚠️ [Gemini 텍스트 요약 실패 (${m})]: ${mErr?.message || mErr}`);
+              const errStr = String(mErr?.message || mErr);
+              logs.push(`⚠️ [Gemini 텍스트 요약 실패 (${m})]: ${errStr}`);
+              if (errStr.includes('leaked') || errStr.includes('PERMISSION_DENIED') || errStr.includes('403')) {
+                logs.push(`🚨 [Gemini API Key 차단 감지] 입력하신 API Key가 Google 유출 정책으로 차단되었습니다. https://aistudio.google.com/app/apikey 에서 무료 새 Key를 발급받아 등록해 주세요.`);
+                isKeyBlocked = true;
+                break;
+              }
             }
           }
         } catch (textErr: any) {
@@ -260,7 +267,8 @@ async function handleCtiRequest(req: any, res: any) {
           const isWav = targetRecord.filename?.endsWith('.wav');
           const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
 
-          const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+          const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+          let isKeyBlocked = false;
           for (const m of modelCandidates) {
             try {
               logs.push(`[Gemini AI 오디오 분석 시도] 모델: ${m}`);
@@ -288,8 +296,24 @@ async function handleCtiRequest(req: any, res: any) {
                 break;
               }
             } catch (mErr: any) {
-              logs.push(`⚠️ [Gemini AI 오디오 분석 실패 (${m})]: ${mErr?.message || mErr}`);
+              const errStr = String(mErr?.message || mErr);
+              logs.push(`⚠️ [Gemini AI 오디오 분석 실패 (${m})]: ${errStr}`);
+              if (errStr.includes('leaked') || errStr.includes('PERMISSION_DENIED') || errStr.includes('403')) {
+                logs.push(`🚨 [Gemini API Key 차단 감지] 입력하신 API Key가 Google 유출 정책으로 차단되었습니다. https://aistudio.google.com/app/apikey 에서 무료 새 Key를 발급받아 등록해 주세요.`);
+                isKeyBlocked = true;
+                break;
+              }
             }
+          }
+
+          if (isKeyBlocked) {
+            return res.json({
+              success: false,
+              message: '🚨 입력하신 Gemini API Key가 Google에 의해 유출(Leaked) 위험으로 차단되었습니다. [🔑 Gemini API Key 설정] 버튼을 클릭하여 Google AI Studio에서 무료로 발급받은 새 API Key를 입력해 주세요.',
+              records,
+              selectedRecord: targetRecord,
+              logs,
+            });
           }
         } catch (audioErr: any) {
           logs.push(`⚠️ [Gemini AI 오디오 분석 예외]: ${audioErr?.message || audioErr}`);
