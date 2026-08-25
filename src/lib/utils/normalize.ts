@@ -102,3 +102,18 @@ export function replaceMacroPlaceholders(
   return result;
 }
 
+/**
+ * Safely converts insecure HTTP audio URLs to HTTPS proxy URLs on HTTPS environments (e.g. Vercel)
+ * to avoid Mixed Content Policy blocking (Chrome/Edge).
+ */
+export function getSafeAudioUrl(url?: string | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && trimmed.startsWith('http://')) {
+    return `/api/cti/proxy-audio?url=${encodeURIComponent(trimmed)}`;
+  }
+  return trimmed;
+}
+

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CtiCallRecord } from '../../../backend/services/cti/ctiCollectorService';
 import { InternalAgent } from '../../../backend/types';
+import { getSafeAudioUrl } from '../../../lib/utils/normalize';
 
 interface CtiDetailPanelProps {
   agents?: InternalAgent[];
@@ -132,7 +133,7 @@ export const CtiDetailPanel: React.FC<CtiDetailPanelProps> = ({
               {selectedRecord.fullUrl ? (
                 <audio
                   controls
-                  src={selectedRecord.fullUrl}
+                  src={getSafeAudioUrl(selectedRecord.fullUrl)}
                   className="w-full h-9 rounded-lg border border-indigo-200"
                 />
               ) : (
