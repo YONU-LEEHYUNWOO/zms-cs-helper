@@ -68,6 +68,12 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 * **Supabase Auth → internal_agents 100% 자동 동기화 트리거 (`sync_auth_user_to_internal_agents`)**: 신규 상담사 가입 즉시 DB 트리거가 `internal_agents`에 자동 삽입하여 전 상담사 명단 다방면 조회 완수.
 * **Vercel 서버리스 ESM 동적 import & CTI 크롤링 복구 (`api/cti.ts`, `api/ctiCollectorService.ts`)**: `.js` 확장자 해석 및 번들 파일 정돈으로 CTI 크롤링 100% 정상 가동 (`success: true`).
 
+### 2-17. 🌟 고객 과거 이력 수직 타임라인, 실시간 소프트 락, 서비스 이용가이드 & 상담사 명단 공유 (2026-08-25 완료)
+* **📜 고객별 과거 전체 상담 이력 수직 타임라인 모달 (`CustomerHistoryTimelineModal.tsx`)**: 차량/연락처 입력 필드 옆 `📜 과거 상담 이력 (N건)` 버튼 클릭 시 100% 통합 수직 타임라인 모달 표출.
+* **🛡️ Supabase Realtime Broadcast 기반 실시간 편집 소프트 락 (`useAppData.ts`, `CenterCustomerForm.tsx`)**: `public:consultation_locks` 채널 동기화로 타 상담원 수정 시 `🟡 [상담원명]이 편집 중입니다` 펄스 알림 배지 및 경고 후 허용 제어.
+* **📖 사이드바 서비스 이용 가이드 & 사용 매뉴얼 모달 (`ServiceUserGuideModal.tsx`, `SideNavBar.tsx`)**: 좌측 사이드바 `📖 서비스 이용 가이드` 4대 주제 통합 매뉴얼 지원.
+* **👥 사내 전체 상담원 명단 & 내선 다방면 공개 (`AgentProfileModal.tsx`)**: 일반 상담원도 `🏢 사내 상담원 명단 & 내선 조회` 탭에서 신규 추가된 `이동헌` 등 전 사내 명단과 연락처를 다방면 확인 가능.
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
