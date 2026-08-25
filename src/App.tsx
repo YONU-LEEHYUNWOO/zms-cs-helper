@@ -71,7 +71,7 @@ export default function App() {
         <TopNavBar
           activeTab={activeTab}
           customers={appData.customers}
-          consultations={appData.consultations}
+          consultations={appData.allConsultations}
           agents={appData.agents}
           currentAgent={currentAgent}
           tasks={appData.tasks}
@@ -83,8 +83,8 @@ export default function App() {
           onSelectCustomer={(cust) => {
             appData.handleUpdateCustomerField('id', cust.id);
             const foundCons =
-              appData.consultations.find((c) => c.customer_id === cust.id && c.status !== '완료') ||
-              appData.consultations.find((c) => c.customer_id === cust.id);
+              appData.allConsultations.find((c) => c.customer_id === cust.id && c.status !== '완료') ||
+              appData.allConsultations.find((c) => c.customer_id === cust.id);
             if (foundCons) {
               appData.handleSelectConsultation(foundCons.id);
             }
@@ -109,7 +109,7 @@ export default function App() {
               parkingSpots={appData.parkingSpots}
               savedTemplates={appData.templates}
               tasks={appData.tasks}
-              consultations={appData.consultations}
+              consultations={appData.allConsultations}
               activeConsultation={appData.activeConsultation}
               currentAgentName={currentAgentName}
               agents={appData.agents}
