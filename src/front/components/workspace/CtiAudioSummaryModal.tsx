@@ -341,6 +341,8 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
       const selectedRec = fetchedRecords.find(r => r.callIdx === selectedRecordIdx);
       const preKnownMp3Url = selectedRec?.fullUrl && !selectedRec.fullUrl.includes('20520896') && !selectedRec.fullUrl.endsWith('00.mp3') ? selectedRec.fullUrl : undefined;
 
+      const apiKey = apiKeyInput.trim() || getStoredGeminiApiKey(agentName);
+
       const payload = {
         phoneNumber: targetPhone,
         extensionFilter: extensionInput.trim() || undefined,
@@ -350,6 +352,7 @@ export const CtiAudioSummaryModal: React.FC<CtiAudioSummaryModalProps> = ({
         selectedCallIdx: selectedRecordIdx || undefined,
         preKnownMp3Url,
         onlyMetadata,
+        userGeminiKey: apiKey || undefined,
         action: 'analyze_record',
       };
 
