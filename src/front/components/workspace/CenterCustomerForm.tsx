@@ -6,12 +6,13 @@
  * - 고객 차량 정보, 희망 주차면 카테고리 매칭 및 추천 주차 검색 조회를 수행합니다.
  */
 
-import React, { useState, useRef } from 'react';
-import { UserCheck, RotateCcw, Phone, Copy, Car, ChevronDown, Sparkles, Building, MapPin, PlusCircle, Search, FileText, X } from 'lucide-react';
-import { Customer, ParkingSpot, Consultation } from '../../../backend/types';
+import React, { useState, useRef, useMemo } from 'react';
+import { UserCheck, RotateCcw, Phone, Copy, Car, ChevronDown, Sparkles, Building, MapPin, PlusCircle, Search, FileText, X, History, Lock, AlertTriangle } from 'lucide-react';
+import { Customer, ParkingSpot, Consultation, InternalAgent } from '../../../backend/types';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { getInquiryTypeBadgeStyle } from '../../../lib/utils/consultationArchive';
 import { maskTempCarNumber, maskTempPhoneNumber } from '../../../lib/utils/normalize';
+import { CustomerHistoryTimelineModal } from './CustomerHistoryTimelineModal';
 
 interface CenterCustomerFormProps {
   customer: Customer;
@@ -36,6 +37,12 @@ interface CenterCustomerFormProps {
   matchingSuggestion?: { customer: Customer; consultation?: Consultation } | null;
   onApplySuggestion?: () => void;
   onDismissSuggestion?: () => void;
+  consultations?: Consultation[];
+  activeLocks?: Record<string, { agentName: string; lockedAt: number }>;
+  currentConsultationId?: string | null;
+  currentAgentName?: string;
+  onSelectConsultation?: (consId: string) => void;
+  agents?: InternalAgent[];
 }
 
 const STANDARD_CAR_TYPES = [
@@ -72,8 +79,15 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
   matchingSuggestion,
   onApplySuggestion,
   onDismissSuggestion,
+  consultations = [],
+  activeLocks = {},
+  currentConsultationId,
+  currentAgentName = '',
+  onSelectConsultation,
+  agents = [],
 }) => {
   const [showRecommendation, setShowRecommendation] = useState(false);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const recommendationRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +106,32 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
     setTimeout(() => setSaveToast(null), 2000);
   };
 
+  // 과거 상담 이력 건수 계산
+  const historyCount = useMemo(() => {
+    if (!consultations || consultations.length === 0) return 0;
+    const cleanPhone = (customer.phone_number || '').replace(/[^0-9]/g, '');
+    const cleanCar = (customer.car_number || '').trim();
+    if (!cleanPhone && !cleanCar) return 0;
+
+    return consultations.filter((c) => {
+      const cCar = c.customers?.car_number || '';
+      const cPhone = c.customers?.phone_number || '';
+      const pMatch = cleanPhone && cPhone.replace(/[^0-9]/g, '').includes(cleanPhone);
+      const cMatch = cleanCar && cCar.includes(cleanCar);
+      return Boolean(pMatch || cMatch);
+    }).length;
+  }, [consultations, customer.phone_number, customer.car_number]);
+
+  // 다른 상담원이 현재 편집 중인지 (Soft Lock)
+  const activeLockHolder = useMemo(() => {
+    if (!currentConsultationId || !activeLocks) return null;
+    const lock = activeLocks[currentConsultationId];
+    if (lock && lock.agentName && lock.agentName !== currentAgentName) {
+      return lock.agentName;
+    }
+    return null;
+  }, [currentConsultationId, activeLocks, currentAgentName]);
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
       {saveToast && (
@@ -99,6 +139,18 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
           {saveToast}
         </div>
       )}
+
+      {/* 🛡️ 실시간 편집 소프트 락 (Soft Lock) 경고 펄스 배지 */}
+      {activeLockHolder && (
+        <div className="m-3 p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between gap-3 text-amber-900 text-xs font-bold animate-pulse shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>🟡 [{activeLockHolder} 상담원]이 현재 이 건을 편집 중입니다. (저장 시 경고 후 허용)</span>
+          </div>
+          <span className="bg-amber-200/80 text-amber-900 text-[11px] px-2 py-0.5 rounded font-mono">Soft Lock Active</span>
+        </div>
+      )}
+
       <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center bg-slate-50/50 gap-3">
         <div className="flex items-center gap-3">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2 text-sm">
@@ -141,6 +193,17 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* 📜 과거 전체 상담 이력 수직 타임라인 버튼 */}
+          <button
+            type="button"
+            onClick={() => setShowTimelineModal(true)}
+            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+            title="이 고객의 과거 전체 상담 이력 수직 타임라인을 확인합니다."
+          >
+            <History className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>📜 과거 상담 이력 ({historyCount}건)</span>
+          </button>
+
           {/* 🔄 크고 가독성 명확한 전체 초기화 버튼 */}
           {onResetForm && (
             <button
@@ -531,6 +594,20 @@ export const CenterCustomerForm: React.FC<CenterCustomerFormProps> = ({
           </div>
         )}
       </div>
+
+      {/* 고객 과거 전체 상담 이력 수직 타임라인 모달 */}
+      <CustomerHistoryTimelineModal
+        isOpen={showTimelineModal}
+        onClose={() => setShowTimelineModal(false)}
+        carNumber={customer?.car_number}
+        phoneNumber={customer?.phone_number}
+        customerName={customer?.name}
+        consultations={consultations}
+        agents={agents}
+        onSelectConsultation={(cons) => {
+          if (onSelectConsultation) onSelectConsultation(cons.id);
+        }}
+      />
     </div>
   );
 };

@@ -31,6 +31,43 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   // 📦 Phase 1.5: 90일 경과 완료건 보관 이력 필터 토글 상태
   const [showOlderArchive, setShowOlderArchive] = useState<boolean>(false);
 
+  // 🛡️ 계정 간 실시간 편집 소프트 락 (Soft Lock) 상태 (consultationId -> { agentName, lockedAt })
+  const [activeLocks, setActiveLocks] = useState<Record<string, { agentName: string; lockedAt: number }>>({});
+
+  const acquireLock = useCallback((consultationId: string, agentName: string) => {
+    if (!consultationId || !agentName) return;
+    const now = Date.now();
+    setActiveLocks((prev) => ({
+      ...prev,
+      [consultationId]: { agentName, lockedAt: now },
+    }));
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.channel('public:consultation_locks').send({
+        type: 'broadcast',
+        event: 'lock_changed',
+        payload: { consultationId, agentName, action: 'lock', timestamp: now },
+      });
+    }
+  }, []);
+
+  const releaseLock = useCallback((consultationId: string, agentName: string) => {
+    if (!consultationId) return;
+    setActiveLocks((prev) => {
+      const copy = { ...prev };
+      delete copy[consultationId];
+      return copy;
+    });
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.channel('public:consultation_locks').send({
+        type: 'broadcast',
+        event: 'lock_changed',
+        payload: { consultationId, agentName, action: 'unlock', timestamp: Date.now() },
+      });
+    }
+  }, []);
+
   const fetchAgents = useCallback(() => {
     if (isSupabaseConfigured() && supabase) {
       // Supabase DB에서 전체 상담원 목록을 100% 실시간으로 가져옴 (내 계정에서도 타 상담원 확인 가능)
@@ -121,6 +158,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     let agentChannel: any = null;
     let taskChannel: any = null;
     let customerChannel: any = null;
+    let lockChannel: any = null;
 
     if (isSupabaseConfigured() && supabase) {
       agentChannel = supabase
@@ -143,12 +181,33 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
           fetchCustomers();
         })
         .subscribe();
+
+      lockChannel = supabase
+        .channel('public:consultation_locks')
+        .on('broadcast', { event: 'lock_changed' }, ({ payload }) => {
+          if (!payload) return;
+          const { consultationId, agentName, action, timestamp } = payload;
+          if (action === 'lock') {
+            setActiveLocks((prev) => ({
+              ...prev,
+              [consultationId]: { agentName, lockedAt: timestamp || Date.now() },
+            }));
+          } else if (action === 'unlock') {
+            setActiveLocks((prev) => {
+              const copy = { ...prev };
+              delete copy[consultationId];
+              return copy;
+            });
+          }
+        })
+        .subscribe();
     }
 
     return () => {
       if (agentChannel && supabase) supabase.removeChannel(agentChannel);
       if (taskChannel && supabase) supabase.removeChannel(taskChannel);
       if (customerChannel && supabase) supabase.removeChannel(customerChannel);
+      if (lockChannel && supabase) supabase.removeChannel(lockChannel);
     };
   }, [fetchAgents, fetchTasks, fetchCustomers]);
 
@@ -966,6 +1025,9 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     setShowOlderArchive,
     olderArchiveCount,
     toggleShowOlderArchive,
+    activeLocks,
+    acquireLock,
+    releaseLock,
     tasks,
     parkingSpots,
     selectedCustomer,

@@ -53,6 +53,7 @@ interface MainConsultationHubProps {
   matchingSuggestion?: { customer: Customer; consultation?: Consultation } | null;
   onApplySuggestion?: () => void;
   onDismissSuggestion?: () => void;
+  activeLocks?: Record<string, { agentName: string; lockedAt: number }>;
   onNavigateToKanban: () => void;
   onNavigateToTasksTab?: () => void;
   onDeleteTask?: (taskId: string) => void;
@@ -82,11 +83,13 @@ export const MainConsultationHub: React.FC<MainConsultationHubProps> = ({
   onToggleTask,
   onSaveLog,
   onResetForm,
+  onSelectConsultation,
   onStartNewConsultation,
   isExistingConsultation,
   matchingSuggestion,
   onApplySuggestion,
   onDismissSuggestion,
+  activeLocks,
   onNavigateToKanban,
   onNavigateToTasksTab,
   onDeleteTask,
@@ -253,6 +256,12 @@ export const MainConsultationHub: React.FC<MainConsultationHubProps> = ({
             matchingSuggestion={matchingSuggestion}
             onApplySuggestion={onApplySuggestion}
             onDismissSuggestion={onDismissSuggestion}
+            consultations={consultations}
+            activeLocks={activeLocks}
+            currentConsultationId={activeConsultation?.id}
+            currentAgentName={currentAgentName}
+            onSelectConsultation={onSelectConsultation}
+            agents={agents}
           />
           <LeftInteractionPad
             activeConsultation={{

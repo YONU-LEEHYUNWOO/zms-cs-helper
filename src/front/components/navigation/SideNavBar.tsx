@@ -13,6 +13,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 import { InternalAgent } from '../../../backend/types';
 
@@ -22,6 +23,7 @@ interface SideNavBarProps {
   currentAgent: InternalAgent | null;
   onOpenLoginModal: () => void;
   onOpenAgentProfileModal?: () => void;
+  onOpenGuideModal?: () => void;
   onLogout: () => void;
   onResetForm?: () => void;
   isCollapsed: boolean;
@@ -34,6 +36,7 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
   currentAgent,
   onOpenLoginModal,
   onOpenAgentProfileModal,
+  onOpenGuideModal,
   onLogout,
   onResetForm,
   isCollapsed,
@@ -205,6 +208,20 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           <HelpCircle className="w-4 h-4 shrink-0" />
           {!isCollapsed && <span className="animate-in fade-in duration-200">Support AI / KMS</span>}
         </button>
+
+        {onOpenGuideModal && (
+          <button
+            type="button"
+            onClick={onOpenGuideModal}
+            className={`flex items-center rounded-xl transition-all cursor-pointer bg-slate-100/80 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-semibold border border-slate-200/80 ${
+              isCollapsed ? 'justify-center p-3' : 'px-3.5 py-2.5 gap-3'
+            }`}
+            title="📖 서비스 이용 가이드 & 사용 매뉴얼"
+          >
+            <BookOpen className="w-4 h-4 shrink-0 text-blue-600" />
+            {!isCollapsed && <span className="animate-in fade-in duration-200 font-bold">서비스 이용 가이드</span>}
+          </button>
+        )}
       </nav>
 
       {/* Footer Profile & Auth Controls */}

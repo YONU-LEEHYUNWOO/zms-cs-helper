@@ -68,7 +68,7 @@ export const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
   const isAdmin = currentAgent?.role === 'ADMIN' || currentAgent?.role === 'SUPER_ADMIN' || currentAgent?.agent_name === '관리자' || currentAgent?.agent_name === '이현우';
 
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'admin' || activeTab === 'switch')) {
+    if (!isAdmin && activeTab === 'switch') {
       setActiveTab('profile');
     }
   }, [isAdmin, activeTab]);
@@ -222,23 +222,21 @@ export const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
             <span>👤 내 프로필 설정</span>
           </button>
 
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('admin');
-                setStatusMsg(null);
-              }}
-              className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'admin'
-                  ? 'border-blue-600 text-blue-600 bg-white shadow-3xs rounded-t-lg'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>🏢 상담사 명단 & 신규 가입 (관리자전용)</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('admin');
+              setStatusMsg(null);
+            }}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'admin'
+                ? 'border-blue-600 text-blue-600 bg-white shadow-3xs rounded-t-lg'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>🏢 사내 상담사 명단 & 내선 조회</span>
+          </button>
 
           {isAdmin && (
             <button
@@ -459,27 +457,39 @@ export const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
                           <td className="p-2.5 font-mono text-slate-700">{ag.extension_number || '-'}</td>
                           <td className="p-2.5 font-mono text-slate-600">{ag.phone_number || '-'}</td>
                           <td className="p-2.5 font-bold">
-                            <select
-                              value={ag.role || 'AGENT'}
-                              onChange={async (e) => {
-                                const newRole = e.target.value as 'AGENT' | 'LEADER' | 'ADMIN';
-                                if (onUpdateAgentRole) {
-                                  await onUpdateAgentRole(ag.id, newRole);
-                                  setStatusMsg({ type: 'success', text: `'${ag.agent_name}' 상담원의 권한이 '${newRole}'(으)로 변경되었습니다.` });
-                                }
-                              }}
-                              className={`text-[10px] font-bold px-2 py-1 rounded-md border outline-none cursor-pointer ${
+                            {isAdmin ? (
+                              <select
+                                value={ag.role || 'AGENT'}
+                                onChange={async (e) => {
+                                  const newRole = e.target.value as 'AGENT' | 'LEADER' | 'ADMIN';
+                                  if (onUpdateAgentRole) {
+                                    await onUpdateAgentRole(ag.id, newRole);
+                                    setStatusMsg({ type: 'success', text: `'${ag.agent_name}' 상담원의 권한이 '${newRole}'(으)로 변경되었습니다.` });
+                                  }
+                                }}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border outline-none cursor-pointer ${
+                                  ag.role === 'ADMIN' 
+                                    ? 'bg-purple-100 text-purple-900 border-purple-300' 
+                                    : ag.role === 'LEADER'
+                                      ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                      : 'bg-slate-100 text-slate-700 border-slate-300'
+                                }`}
+                              >
+                                <option value="AGENT">AGENT (일반상담원)</option>
+                                <option value="LEADER">LEADER (팀장)</option>
+                                <option value="ADMIN">ADMIN (최고관리자)</option>
+                              </select>
+                            ) : (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                 ag.role === 'ADMIN' 
                                   ? 'bg-purple-100 text-purple-900 border-purple-300' 
                                   : ag.role === 'LEADER'
                                     ? 'bg-blue-100 text-blue-900 border-blue-300'
                                     : 'bg-slate-100 text-slate-700 border-slate-300'
-                              }`}
-                            >
-                              <option value="AGENT">AGENT (일반상담원)</option>
-                              <option value="LEADER">LEADER (팀장)</option>
-                              <option value="ADMIN">ADMIN (최고관리자)</option>
-                            </select>
+                              }`}>
+                                {ag.role || 'AGENT'}
+                              </span>
+                            )}
                           </td>
                           <td className="p-2.5 text-center">
                             <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">
@@ -493,8 +503,9 @@ export const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* 신규 상담사 가입 등록 폼 */}
-              <form onSubmit={handleCreateAgent} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              {/* 신규 상담사 가입 등록 폼 (어드민전용) */}
+              {isAdmin ? (
+                <form onSubmit={handleCreateAgent} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                   <UserPlus className="w-4 h-4 text-blue-600" />
                   <span>➕ 신규 상담사 계정 등록 (어드민)</span>
@@ -594,6 +605,11 @@ export const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
                   </button>
                 </div>
               </form>
+              ) : (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 font-medium text-center">
+                  ℹ️ 신규 상담사 계정 추가 등록 및 권한 설정은 최고 관리자(ADMIN) 계정에서 실행할 수 있습니다.
+                </div>
+              )}
             </div>
           )}
 

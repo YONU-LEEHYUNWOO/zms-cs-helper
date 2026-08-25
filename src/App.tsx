@@ -23,6 +23,7 @@ import { SupportAiKms } from './front/components/support/SupportAiKms';
 import { TaskManagementView } from './front/components/tasks/TaskManagementView';
 import { LoginModal } from './front/components/auth/LoginModal';
 import { AgentProfileModal } from './front/components/auth/AgentProfileModal';
+import { ServiceUserGuideModal } from './front/components/support/ServiceUserGuideModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
@@ -32,6 +33,7 @@ export default function App() {
   const { session, agent: currentAgent, isLoading, signOut, refreshAgentData, setAgentOverride } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAgentProfileModalOpen, setIsAgentProfileModalOpen] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function App() {
         onResetForm={appData.handleResetForm}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         onOpenAgentProfileModal={() => setIsAgentProfileModalOpen(true)}
+        onOpenGuideModal={() => setIsGuideModalOpen(true)}
         onLogout={() => {
           signOut();
           setIsLoginModalOpen(true);
@@ -137,6 +140,7 @@ export default function App() {
               matchingSuggestion={appData.matchingSuggestion}
               onApplySuggestion={appData.handleApplySuggestion}
               onDismissSuggestion={appData.handleDismissSuggestion}
+              activeLocks={appData.activeLocks}
               onNavigateToKanban={() => setActiveTab('kanban')}
               onNavigateToTasksTab={() => setActiveTab('tasks')}
               onDeleteTask={appData.handleDeleteTask}
@@ -265,6 +269,11 @@ export default function App() {
           setIsLoginModalOpen(true);
         }}
       />
+
+      <ServiceUserGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+      />
     </div>
   );
-}
+};
