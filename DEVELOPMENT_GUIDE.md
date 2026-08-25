@@ -171,6 +171,19 @@ ZMS_CS_HELPER/
 ### 4.10 ⚡ Supabase DB 트리거 기반 Auth ➔ internal_agents 자동 연동 (`sync_auth_user_to_internal_agents`)
 * **기능 요약**: `auth.users`에 신규 회원가입 발생 시 PostgreSQL DB 트리거가 `internal_agents` 테이블에 자동 삽입/갱신하여, 어떤 계정이 가입되더라도 별도 처리 없이 전체 상담원 명단에 100% 즉시 표출 및 다방면 실시간 관제 연동 완수.
 
+### 4.11 🔑 상담사 계정별 API Key 격리 및 CTI AI 요약/대화록 가독성 개선
+* **상담사 계정별 API Key 엄격 격리**: `getStoredGeminiApiKey(agentName)`가 `agentName`이 지정된 경우 오직 `gemini_api_key_${agentName}`만 격리하여 조회 및 저장하고, 타 상담사 계정의 API Key 노출/혼용을 100% 원천 차단함.
+* **통화 흐름 4줄 자연어 요약**: Gemini AI 프롬프트 튜닝을 통해 고정된 타이틀 대신 통화 흐름과 결과를 알기 쉽게 4줄 스토리로 자연스럽게 요약.
+* **🔍 고가독성 팝업 뷰어 모달 (`CtiDetailPanel.tsx`)**: 패널 가독성을 높이기 위해 시원한 넓은 뷰포트 모달과 대본 실시간 키워드 라이브 검색 및 1클릭 복사 클립보드 기능 구현.
+
+### 4.12 🧹 [리팩토링 계획] 거대 파일 단일 파일 크기 제한 (Rule 2) 준수 방안
+* **현황**: CTI 관련 기능을 한 파일에 처리하면서 `CtiAudioSummaryModal.tsx`가 약 1,100줄에 달하여 Rule 2(단일 파일 500줄 이하)를 위반하고 있음.
+* **분할 계획**:
+  1. `CtiCredentialForm.tsx` (CTI 로그인 정보 및 API Key 설정 패널) 분리.
+  2. `CtiRecordTable.tsx` (CTI 통화 이력 리스트 테이블 및 검색 필터) 분리.
+  3. `CtiFullViewerModal.tsx` (대화록 라이브 검색 기능을 포함한 팝업 뷰어) 분리.
+* **기대 효과**: 컴포넌트 복잡도를 대폭 낮추고 각 파일의 크기를 400줄 이하로 유지하여 유지 보수성 향상.
+
 ---
 
 ## 5. 🌐 상용 배포 (Production Deployment) & 환경 변수 키 관리 가이드
