@@ -291,7 +291,43 @@ async function handleCtiRequest(req: any, res: any) {
 
               const aiRes: any = await Promise.race([geminiPromise, timeoutPromise]);
               if (aiRes && aiRes.text) {
-                sttScript = aiRes.text;
+                const fullText = aiRes.text;
+
+                // STT 대화록 구분선 찾기 (4) STT대화록 또는 STT 대화록 또는 ---TRANSCRIPT--- 등)
+                const sttMarkerRegex = /(?:4\)\s*STT\s*대화록|STT\s*대화록|---TRANSCRIPT---|대화록\s*:?)/i;
+                const match = fullText.match(sttMarkerRegex);
+
+                let summaryPart = fullText;
+                let scriptPart = fullText;
+
+                if (match && match.index !== undefined && match.index > 10) {
+                  summaryPart = fullText.slice(0, match.index).trim();
+                  scriptPart = fullText.slice(match.index).trim();
+                }
+
+                // 핵심 이슈 키워드 추출
+                const issueMatch = fullText.match(/(?:2\)\s*핵심이슈|핵심이슈)\s*:?\s*([^\n]+)/i);
+                if (issueMatch && issueMatch[1]) {
+                  keyIssues = issueMatch[1].trim();
+                }
+
+                // 감정 추출
+                const sentimentMatch = fullText.match(/(?:3\)\s*감정|감정)\s*:?\s*([^\n]+)/i);
+                if (sentimentMatch && sentimentMatch[1]) {
+                  sentiment = sentimentMatch[1].trim();
+                }
+
+                // summaries 배열에 순수 AI 요약문 할당 (메타데이터 덮어쓰기 완료)
+                const parsedLines = summaryPart
+                  .split('\n')
+                  .map(l => l.trim())
+                  .filter(l => l.length > 0);
+
+                if (parsedLines.length > 0) {
+                  summaries = parsedLines;
+                }
+
+                sttScript = scriptPart;
                 logs.push(`✅ [Gemini AI 오디오 분석 성공] 모델: ${m}`);
                 break;
               }
