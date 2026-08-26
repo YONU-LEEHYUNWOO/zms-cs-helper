@@ -135,7 +135,13 @@ export const MainConsultationHub: React.FC<MainConsultationHubProps> = ({
   const assignedAgentObject = agents.find((a) => a.agent_name === assignedAgentName);
 
   const [targetAgentSelection, setTargetAgentSelection] = useState(assignedAgentName);
-  const activeTasks = tasks.filter((t) => t.consultation_id === activeConsultation.id);
+
+  // 현재 선택된 상담건 관련 TODO 또는 현재 로그인 상담사에 할당된 미완료 TODO 리스트
+  const activeTasks = tasks.filter((t) => {
+    if (activeConsultation?.id && t.consultation_id === activeConsultation.id) return true;
+    if (t.agent_name === currentAgentName && !t.is_completed) return true;
+    return false;
+  });
 
   const handleSaveAndSubmit = () => {
     // 💡 주차 문의, 연장, 차량 변경 문의가 아니거나 값이 비어있는 경우 무조건 null 처리하여 DB 꼬임 방지

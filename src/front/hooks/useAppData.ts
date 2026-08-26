@@ -154,32 +154,30 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
             try { localTasks = JSON.parse(cachedRaw); } catch (e) {}
           }
 
-          // DB가 비어있을 때: PC 로컬스토리지에 기존 데이터가 있으면 Supabase로 자동 복구/마이그레이션
-          if ((!data || data.length === 0) && localTasks.length > 0) {
-            console.log(`[fetchTasks] 로컬스토리지 TODO ${localTasks.length}건 → Supabase DB 자동 복구 마이그레이션 실행`);
-            const dbPayloads = localTasks.map(t => formatDbTaskPayload(t));
-            const { error: upsertErr } = await supabase.from('agent_tasks').upsert(dbPayloads);
-            if (upsertErr) {
-              console.warn('[fetchTasks] 마이그레이션 1차 경고:', upsertErr.message);
-              const fallbackPayloads = dbPayloads.map(p => ({
-                id: p.id,
-                consultation_id: p.consultation_id,
-                agent_name: p.agent_name,
-                task_title: p.task_title,
-                due_date: p.due_date,
-                is_completed: p.is_completed,
-                created_at: p.created_at,
-              }));
-              await supabase.from('agent_tasks').upsert(fallbackPayloads);
+          const fetchedTasks = (data as AgentTask[]) || [];
+
+          // 💡 DB 결과와 로컬스토리지 결과 병합 (ID 기준)
+          // 로컬스토리지에는 존재하지만 DB에는 아직 업로드되지 않은 태스크가 있다면 Supabase DB로 동기화 업로드
+          const dbTaskIds = new Set(fetchedTasks.map(t => t.id));
+          const unsyncedLocalTasks = localTasks.filter(t => !dbTaskIds.has(t.id));
+
+          if (unsyncedLocalTasks.length > 0) {
+            console.log(`[fetchTasks] 미동기화 로컬 TODO ${unsyncedLocalTasks.length}건 → Supabase DB 자동 동기화 시작`);
+            for (const unsyncedTask of unsyncedLocalTasks) {
+              await saveTaskToSupabase(unsyncedTask);
             }
-            setTasks(localTasks);
-            return;
           }
 
-          // DB 데이터를 그대로 상태에 반영
-          const fetchedTasks = (data as AgentTask[]) || [];
-          setTasks(fetchedTasks);
-          localStorage.setItem('local_agent_tasks', JSON.stringify(fetchedTasks));
+          const combinedMap = new Map<string, AgentTask>();
+          fetchedTasks.forEach(t => combinedMap.set(t.id, t));
+          unsyncedLocalTasks.forEach(t => combinedMap.set(t.id, t));
+
+          const finalCombinedTasks = Array.from(combinedMap.values()).sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          );
+
+          setTasks(finalCombinedTasks);
+          localStorage.setItem('local_agent_tasks', JSON.stringify(finalCombinedTasks));
         });
     } else {
       const cachedTasks = localStorage.getItem('local_agent_tasks');
