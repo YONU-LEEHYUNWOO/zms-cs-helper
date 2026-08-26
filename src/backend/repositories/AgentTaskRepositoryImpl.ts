@@ -93,6 +93,7 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
       task_title: t.task_title,
       tag: t.tag || '개인메모',
       due_date: t.due_date ? new Date(t.due_date).toISOString() : null,
+      reminder_datetime: t.reminder_datetime ? new Date(t.reminder_datetime).toISOString() : null,
       is_completed: t.is_completed ?? false,
       created_at: t.created_at || new Date().toISOString(),
       history: t.history || [],

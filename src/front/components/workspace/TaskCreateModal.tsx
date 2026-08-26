@@ -1,9 +1,10 @@
 /**
- * ZMS CS Helper - Task/TODO & 리마인더 생성 모달 (TaskCreateModal)
+ * ZMS CS Helper - Task/TODO & 리마인더 생성/수정 모달 (TaskCreateModal)
  * 
  * [역할 및 아키텍처 위치]
  * - 사내 DB 등록 상담원(internal_agents) 계정 선택 및 다방향 업무 이관/전달 기능 제공
- * - 나 자신(개인 메모) 지정 및 알림 일시(선택 지정) 연동
+ * - 마감일자(due_date)와 알림일시(reminder_datetime) 완전 분리 제어 및 날짜/시간 피커 렌더링
+ * - datetime-local 인풋 시/분 리셋 버그(ISO string 파싱 문제) 방지를 위한 포맷 변환 내장
  */
 
 import React, { useState, useEffect } from 'react';
@@ -20,6 +21,7 @@ interface TaskCreateModalProps {
     agent_name?: string;
     tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관';
     due_date?: string;
+    reminder_datetime?: string;
     consultation_id?: string;
   }) => void;
   onEditTask?: (
@@ -29,10 +31,40 @@ interface TaskCreateModalProps {
       agent_name?: string;
       tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관';
       due_date?: string;
+      reminder_datetime?: string;
     }
   ) => void;
   taskToEdit?: AgentTask | null;
   activeConsultationId?: string;
+}
+
+// YYYY-MM-DD 포맷팅 (input type="date" 전용)
+function formatToInputDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    if (dateStr.length >= 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.slice(0, 10))) {
+      return dateStr.slice(0, 10);
+    }
+    return '';
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// YYYY-MM-DDTHH:mm 포맷팅 (input type="datetime-local" 전용)
+function formatToInputDateTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
@@ -49,6 +81,7 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
   const [assignedAgent, setAssignedAgent] = useState(currentAgentName);
   const [selectedTag, setSelectedTag] = useState<'개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'>('개인메모');
   const [dueDate, setDueDate] = useState('');
+  const [reminderDatetime, setReminderDatetime] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -56,12 +89,21 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
         setTaskTitle(taskToEdit.task_title || '');
         setAssignedAgent(taskToEdit.agent_name || currentAgentName);
         setSelectedTag(taskToEdit.tag || '개인메모');
-        setDueDate(taskToEdit.due_date || '');
+        setDueDate(formatToInputDate(taskToEdit.due_date));
+
+        if (taskToEdit.reminder_datetime) {
+          setReminderDatetime(formatToInputDateTime(taskToEdit.reminder_datetime));
+        } else if (taskToEdit.due_date && (taskToEdit.due_date.includes('T') || taskToEdit.due_date.includes(' '))) {
+          setReminderDatetime(formatToInputDateTime(taskToEdit.due_date));
+        } else {
+          setReminderDatetime('');
+        }
       } else {
         setAssignedAgent(currentAgentName);
         setSelectedTag('개인메모');
         setTaskTitle('');
         setDueDate('');
+        setReminderDatetime('');
       }
     }
   }, [isOpen, taskToEdit, currentAgentName]);
@@ -75,19 +117,19 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
       return;
     }
 
+    const payload = {
+      task_title: taskTitle.trim(),
+      agent_name: assignedAgent || currentAgentName,
+      tag: selectedTag,
+      due_date: dueDate || undefined,
+      reminder_datetime: reminderDatetime || undefined,
+    };
+
     if (taskToEdit && onEditTask) {
-      onEditTask(taskToEdit.id, {
-        task_title: taskTitle.trim(),
-        agent_name: assignedAgent || currentAgentName,
-        tag: selectedTag,
-        due_date: dueDate || undefined,
-      });
+      onEditTask(taskToEdit.id, payload);
     } else {
       onAddTask({
-        task_title: taskTitle.trim(),
-        agent_name: assignedAgent || currentAgentName,
-        tag: selectedTag,
-        due_date: dueDate || undefined,
+        ...payload,
         consultation_id: activeConsultationId,
       });
     }
@@ -199,12 +241,12 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
             />
           </div>
 
-          {/* 4. 알림 일시 선택 피커 (선택 지정 시 알림 팝업 트리거) */}
-          <div className="space-y-1.5 bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
-            <label className="font-bold text-blue-950 flex items-center justify-between">
+          {/* 4. 마감일자 (Due Date) 지정 피커 */}
+          <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <label className="font-bold text-slate-800 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <BellRing className="w-4 h-4 text-blue-600" />
-                <span>마감/알림 날짜 & 시각 지정 (선택 항목)</span>
+                <Calendar className="w-4 h-4 text-indigo-600" />
+                <span>📅 마감 일자 지정 (선택 항목)</span>
               </span>
               {dueDate && (
                 <button
@@ -217,14 +259,39 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
               )}
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
+
+          {/* 5. 알림 일시 선택 피커 (선택 지정 시 알림 팝업 트리거) */}
+          <div className="space-y-1.5 bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
+            <label className="font-bold text-blue-950 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <BellRing className="w-4 h-4 text-blue-600" />
+                <span>🔔 알림 일시 지정 (시/분 선택)</span>
+              </span>
+              {reminderDatetime && (
+                <button
+                  type="button"
+                  onClick={() => setReminderDatetime('')}
+                  className="text-[10px] text-red-600 hover:underline font-bold"
+                >
+                  지우기
+                </button>
+              )}
+            </label>
+            <input
+              type="datetime-local"
+              value={reminderDatetime}
+              onChange={(e) => setReminderDatetime(e.target.value)}
               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             />
             <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
               <AlertCircle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>알림 시각을 직접 선택하신 경우에만 마감 시간에 🔔 상단 알림 벨 및 팝업이 울립니다.</span>
+              <span>지정한 알림 시/분에 🔔 상단 알림 벨 및 팝업 알림이 울립니다.</span>
             </p>
           </div>
 

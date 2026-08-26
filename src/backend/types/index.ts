@@ -99,7 +99,8 @@ export interface AgentTask {
   agent_name: string;                                     // 현재 담당자 계정명 (예: '이동헌')
   task_title: string;                                     // TODO 내용 / 개인 메모
   tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'; // 업무 태그
-  due_date?: string;                                      // 마감/알림 일시
+  due_date?: string;                                      // 마감 일자 (예: 2026-08-28)
+  reminder_datetime?: string;                             // 알림 발동 일시 (예: 2026-08-27T14:30)
   is_completed: boolean;
   created_at?: string;
   history?: TaskTransferHistory[];                        // 이관/전달 연쇄 이력 타임라인 (예: 이현우 ➔ 이동헌 ➔ 김상담)

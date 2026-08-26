@@ -211,18 +211,19 @@ export function useNotifications({
     const nowTime = Date.now();
 
     myPendingTasks.forEach((t) => {
-      // 마감/알림 일시 타임스탬프 파싱 검증
-      if (t.due_date) {
-        const dueTime = new Date(t.due_date).getTime();
+      // 마감/알림 일시 타임스탬프 파싱 검증 (reminder_datetime 우선, due_date 폴백)
+      const targetTimeStr = t.reminder_datetime || t.due_date;
+      if (targetTimeStr) {
+        const targetTime = new Date(targetTimeStr).getTime();
 
-        if (!isNaN(dueTime) && dueTime <= nowTime) {
+        if (!isNaN(targetTime) && targetTime <= nowTime) {
           const tagText = t.tag ? `[${t.tag}] ` : '';
           const notifId = `taskdue-${t.id}`;
           newNotifications.push({
             id: notifId,
             type: 'task_due',
-            title: '⏰ TODO/업무 마감 알림',
-            body: `${tagText}"${t.task_title}" 마감 시각이 도달했습니다.`,
+            title: t.reminder_datetime ? '🔔 TODO 알림 시각 도달' : '⏰ TODO/업무 마감 알림',
+            body: `${tagText}"${t.task_title}" ${t.reminder_datetime ? '알림 시각이' : '마감 시각이'} 도달했습니다.`,
             consultationId: t.consultation_id,
             taskId: t.id,
             isRead: readIds.has(notifId),

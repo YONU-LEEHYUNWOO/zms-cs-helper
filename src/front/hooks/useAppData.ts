@@ -508,7 +508,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   };
 
   const handleAddTask = async (
-    input: string | { task_title: string; agent_name?: string; tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'; due_date?: string; consultation_id?: string },
+    input: string | { task_title: string; agent_name?: string; tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'; due_date?: string; reminder_datetime?: string; consultation_id?: string },
     dueDateParam?: string
   ) => {
     let newTask: AgentTask;
@@ -533,6 +533,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         task_title: input.task_title,
         tag: input.tag || '개인메모',
         due_date: input.due_date || undefined,
+        reminder_datetime: input.reminder_datetime || undefined,
         is_completed: false,
         created_at: new Date().toISOString(),
       };
@@ -572,6 +573,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       agent_name?: string;
       tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관';
       due_date?: string;
+      reminder_datetime?: string;
     }
   ) => {
     const target = tasks.find((t) => t.id === taskId);
@@ -581,7 +583,8 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         task_title: updatedInput.task_title,
         agent_name: updatedInput.agent_name || target.agent_name,
         tag: updatedInput.tag || target.tag,
-        due_date: updatedInput.due_date || undefined,
+        due_date: updatedInput.due_date !== undefined ? updatedInput.due_date : target.due_date,
+        reminder_datetime: updatedInput.reminder_datetime !== undefined ? updatedInput.reminder_datetime : target.reminder_datetime,
       };
       // If agent_name was changed in edit modal, log history entry
       if (updatedInput.agent_name && updatedInput.agent_name !== target.agent_name) {

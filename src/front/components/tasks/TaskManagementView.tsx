@@ -40,6 +40,7 @@ interface TaskManagementViewProps {
     agent_name?: string;
     tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관';
     due_date?: string;
+    reminder_datetime?: string;
     consultation_id?: string;
   }) => void;
   onEditTask?: (
@@ -49,6 +50,7 @@ interface TaskManagementViewProps {
       agent_name?: string;
       tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관';
       due_date?: string;
+      reminder_datetime?: string;
     }
   ) => void;
   onSelectConsultation?: (consId: string) => void;
@@ -504,11 +506,19 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                           )
                         )}
 
-                        {/* 마감/알림 날짜 배지 (선택 지정된 경우에만 노출) */}
+                        {/* 마감 날짜 배지 */}
                         {task.due_date && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-indigo-600" />
+                            📅 마감: {task.due_date.slice(0, 10)}
+                          </span>
+                        )}
+
+                        {/* 알림 일시 배지 */}
+                        {task.reminder_datetime && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            알림 시각: {task.due_date.replace('T', ' ').slice(0, 16)}
+                            <BellRing className="w-3 h-3 text-red-600" />
+                            🔔 알림: {task.reminder_datetime.replace('T', ' ').slice(0, 16)}
                           </span>
                         )}
                       </div>
