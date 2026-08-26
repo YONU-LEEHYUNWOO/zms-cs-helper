@@ -84,17 +84,25 @@ export interface Consultation {
   is_archived?: boolean;
 }
 
+export interface TaskTransferHistory {
+  from_agent: string;
+  to_agent: string;
+  transferred_at: string;
+  note?: string;
+}
+
 // 5. 후속 조치 작업 및 TODO(AgentTask) 도메인 모델
 export interface AgentTask {
   id: string;
   consultation_id?: string;
-  created_by?: string;                                    // 작성자 계정명 (예: '김상담')
-  agent_name: string;                                     // 담당자 계정명 (DB internal_agents 참조)
+  created_by?: string;                                    // 최초 작성자 계정명 (예: '이현우')
+  agent_name: string;                                     // 현재 담당자 계정명 (예: '이동헌')
   task_title: string;                                     // TODO 내용 / 개인 메모
   tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'; // 업무 태그
-  due_date?: string;                                      // 마감/알림 일시 (선택 항목, 지정 시에만 알림 발송)
+  due_date?: string;                                      // 마감/알림 일시
   is_completed: boolean;
   created_at?: string;
+  history?: TaskTransferHistory[];                        // 이관/전달 연쇄 이력 타임라인 (예: 이현우 ➔ 이동헌 ➔ 김상담)
 }
 
 // 6. 주차장 매물(ParkingSpot) 추천 도메인 모델

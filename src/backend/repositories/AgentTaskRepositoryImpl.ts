@@ -72,6 +72,7 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
       due_date: t.due_date ? new Date(t.due_date).toISOString() : null,
       is_completed: t.is_completed ?? false,
       created_at: t.created_at || new Date().toISOString(),
+      history: t.history || [],
     };
   }
 
@@ -208,21 +209,34 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
     return true;
   }
 
-  async reassignTask(taskId: string, newAgentName: string): Promise<boolean> {
+  async reassignTask(taskId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean> {
     const target = this.cache.find((t) => t.id === taskId);
     if (!target) return false;
 
-    const updated = { ...target, agent_name: newAgentName };
+    const fromAgent = operatorAgentName || target.agent_name;
+    const historyEntry = {
+      from_agent: fromAgent,
+      to_agent: newAgentName,
+      transferred_at: new Date().toISOString(),
+    };
+
+    const existingHistory = target.history || [];
+    const updated = {
+      ...target,
+      agent_name: newAgentName,
+      history: [...existingHistory, historyEntry],
+    };
+
     await this.saveTask(updated);
     return true;
   }
 
-  async reassignTasksByConsultationId(consultationId: string, newAgentName: string): Promise<boolean> {
+  async reassignTasksByConsultationId(consultationId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean> {
     if (!consultationId) return false;
     const matchingTasks = this.cache.filter((t) => t.consultation_id === consultationId);
 
     for (const t of matchingTasks) {
-      await this.reassignTask(t.id, newAgentName);
+      await this.reassignTask(t.id, newAgentName, operatorAgentName);
     }
     return true;
   }

@@ -465,10 +465,10 @@ export const DbViewerTab: React.FC<DbViewerTabProps> = ({
                       <td className="p-3 bg-blue-50/40">
                         <div className="font-bold text-blue-900 flex flex-col leading-tight">
                           <span>👤 {assignedName}</span>
-                          {assignedEmail && (
-                            <span className="text-[10px] text-blue-600 font-mono font-normal mt-0.5">
-                              ({assignedEmail})
-                            </span>
+                          {t.history && t.history.length > 0 && (
+                            <div className="text-[9px] text-indigo-700 font-mono font-bold mt-1 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                              🔄 히스토리: {t.created_by || t.history[0]?.from_agent} {t.history.map(h => `➔ ${h.to_agent}`).join(' ')}
+                            </div>
                           )}
                         </div>
                       </td>

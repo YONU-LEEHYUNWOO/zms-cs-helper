@@ -560,7 +560,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
   };
 
   const handleReassignTask = async (taskId: string, newAgentName: string) => {
-    await agentTaskRepository.reassignTask(taskId, newAgentName);
+    await agentTaskRepository.reassignTask(taskId, newAgentName, currentAgentName);
     const latestTasks = await agentTaskRepository.getAllTasks();
     setTasks(latestTasks);
   };
@@ -583,6 +583,15 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         tag: updatedInput.tag || target.tag,
         due_date: updatedInput.due_date || undefined,
       };
+      // If agent_name was changed in edit modal, log history entry
+      if (updatedInput.agent_name && updatedInput.agent_name !== target.agent_name) {
+        const historyEntry = {
+          from_agent: currentAgentName || target.agent_name,
+          to_agent: updatedInput.agent_name,
+          transferred_at: new Date().toISOString(),
+        };
+        updated.history = [...(target.history || []), historyEntry];
+      }
       await agentTaskRepository.saveTask(updated);
       const latestTasks = await agentTaskRepository.getAllTasks();
       setTasks(latestTasks);
@@ -591,7 +600,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
 
   const handleTakeoverConsultation = async (consId: string) => {
     await consultationDomainService.takeoverConsultationToCurrentAgent(consId, currentAgentName);
-    await agentTaskRepository.reassignTasksByConsultationId(consId, currentAgentName);
+    await agentTaskRepository.reassignTasksByConsultationId(consId, currentAgentName, currentAgentName);
     const latestTasks = await agentTaskRepository.getAllTasks();
     setTasks(latestTasks);
     setSelectedConsultationId(consId);

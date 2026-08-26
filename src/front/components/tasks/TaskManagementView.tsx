@@ -469,11 +469,39 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                           </select>
                         </div>
 
-                        {/* 작성자 배지 */}
-                        {task.created_by && task.created_by !== task.agent_name && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                            ✍️ 전달자: {task.created_by}
-                          </span>
+                        {/* 전달 연쇄 히스토리 타임라인 배지 */}
+                        {task.history && task.history.length > 0 ? (
+                          <div
+                            className="flex items-center gap-1.5 bg-indigo-50/90 text-indigo-900 border border-indigo-200/90 px-2 py-0.5 rounded text-[10px] font-bold shadow-3xs"
+                            title={`전달 전체 히스토리:\n${task.history.map((h, i) => `${i + 1}. ${h.from_agent} ➔ ${h.to_agent} (${h.transferred_at.replace('T', ' ').slice(0, 16)})`).join('\n')}`}
+                          >
+                            <span className="text-indigo-600 font-mono flex items-center gap-1">
+                              🔄 전달 히스토리:
+                            </span>
+                            <span className="font-semibold text-slate-700">
+                              {task.created_by || task.history[0]?.from_agent}
+                            </span>
+                            {task.history.map((h, i) => (
+                              <span key={i} className="flex items-center gap-1">
+                                <span className="text-indigo-400 font-bold">➔</span>
+                                <span
+                                  className={
+                                    i === (task.history?.length ?? 0) - 1
+                                      ? 'text-indigo-950 font-black bg-indigo-200/80 px-1 py-0.2 rounded border border-indigo-300'
+                                      : 'text-indigo-800'
+                                  }
+                                >
+                                  {h.to_agent}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          task.created_by && task.created_by !== task.agent_name && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                              ✍️ 최초 작성자: {task.created_by}
+                            </span>
+                          )
                         )}
 
                         {/* 마감/알림 날짜 배지 (선택 지정된 경우에만 노출) */}
