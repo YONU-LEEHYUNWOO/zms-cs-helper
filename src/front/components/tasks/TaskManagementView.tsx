@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AgentTask, Consultation, InternalAgent } from '../../../backend/types';
 import { TaskCreateModal } from '../workspace/TaskCreateModal';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../lib/utils/dateUtils';
 
 interface TaskManagementViewProps {
   tasks: AgentTask[];
@@ -510,7 +511,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                         {task.due_date && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
                             <Clock className="w-3 h-3 text-indigo-600" />
-                            📅 마감: {task.due_date.slice(0, 10)}
+                            📅 마감: {formatDisplayDate(task.due_date)}
                           </span>
                         )}
 
@@ -518,7 +519,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                         {task.reminder_datetime && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
                             <BellRing className="w-3 h-3 text-red-600" />
-                            🔔 알림: {task.reminder_datetime.replace('T', ' ').slice(0, 16)}
+                            🔔 알림: {formatDisplayDateTime(task.reminder_datetime)}
                           </span>
                         )}
                       </div>

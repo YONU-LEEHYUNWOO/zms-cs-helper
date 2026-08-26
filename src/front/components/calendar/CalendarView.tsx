@@ -29,6 +29,7 @@ import {
 import { Consultation, AgentTask, InternalAgent, Customer } from '../../../backend/types';
 import { getSubStatusBadgeStyle, formatSubStatus, getInquiryTypeBadgeStyle } from '../../../lib/utils/consultationArchive';
 import { maskTempCarNumber, maskTempPhoneNumber } from '../../../lib/utils/normalize';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../lib/utils/dateUtils';
 
 interface CalendarViewProps {
   consultations: Consultation[];
@@ -290,7 +291,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               (c, index, self) => index === self.findIndex((t) => t.id === c.id)
             );
 
-            const matchedTasks = filteredTasks.filter((t) => Boolean(t.due_date && t.due_date.startsWith(dateStr)));
+            const matchedTasks = filteredTasks.filter((t) => {
+              const dStr = t.due_date ? formatDisplayDate(t.due_date) : (t.reminder_datetime ? formatDisplayDate(t.reminder_datetime) : '');
+              return dStr === dateStr;
+            });
 
             // 상태별 건수 요약
             const stats = {
@@ -679,7 +683,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-mono shrink-0 px-2 py-0.5 bg-white/90 rounded-md border">
-                            ⏰ {t.due_date ? t.due_date.replace('T', ' ').slice(11, 16) : '미지정'}
+                            ⏰ {t.reminder_datetime ? formatDisplayDateTime(t.reminder_datetime) : (t.due_date ? formatDisplayDate(t.due_date) : '미지정')}
                           </span>
                           <span className="text-[10px] font-medium text-slate-500 shrink-0">
                             👤 {t.agent_name}

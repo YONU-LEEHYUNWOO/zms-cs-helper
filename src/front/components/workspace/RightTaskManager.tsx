@@ -15,6 +15,7 @@ import {
 import { AgentTask, Consultation, InternalAgent } from '../../../backend/types';
 import { CtiAudioSummaryModal } from './CtiAudioSummaryModal';
 import { TaskCreateModal } from './TaskCreateModal';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../lib/utils/dateUtils';
 
 interface RightTaskManagerProps {
   activeConsultation: Consultation;
@@ -303,13 +304,13 @@ export const RightTaskManager: React.FC<RightTaskManagerProps> = ({
                     {t.due_date && (
                       <span className="text-[9px] font-mono text-indigo-700 bg-indigo-50 px-1 rounded border border-indigo-200 flex items-center gap-0.5">
                         <Clock className="w-2.5 h-2.5 text-indigo-600" />
-                        📅 {t.due_date.slice(0, 10)}
+                        📅 {formatDisplayDate(t.due_date)}
                       </span>
                     )}
                     {t.reminder_datetime && (
                       <span className="text-[9px] font-mono text-red-600 bg-red-50 px-1 rounded border border-red-200 flex items-center gap-0.5">
                         <BellRing className="w-2.5 h-2.5 text-red-600" />
-                        🔔 {t.reminder_datetime.replace('T', ' ').slice(0, 16)}
+                        🔔 {formatDisplayDateTime(t.reminder_datetime)}
                       </span>
                     )}
                   </div>

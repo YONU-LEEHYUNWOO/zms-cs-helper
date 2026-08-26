@@ -11,6 +11,7 @@
 import { AgentTask } from '../types';
 import { IAgentTaskRepository } from './IAgentTaskRepository';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
+import { normalizeToIsoString } from '../../lib/utils/dateUtils';
 
 export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
   private readonly STORAGE_KEY = 'local_agent_tasks';
@@ -92,8 +93,8 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
       created_by: t.created_by || t.agent_name,
       task_title: t.task_title,
       tag: t.tag || '개인메모',
-      due_date: t.due_date ? new Date(t.due_date).toISOString() : null,
-      reminder_datetime: t.reminder_datetime ? new Date(t.reminder_datetime).toISOString() : null,
+      due_date: normalizeToIsoString(t.due_date),
+      reminder_datetime: normalizeToIsoString(t.reminder_datetime),
       is_completed: t.is_completed ?? false,
       created_at: t.created_at || new Date().toISOString(),
       history: t.history || [],

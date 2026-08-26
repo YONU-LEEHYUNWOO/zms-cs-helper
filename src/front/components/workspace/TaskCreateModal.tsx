@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Calendar, User, Tag, BellRing, PlusCircle, AlertCircle } from 'lucide-react';
 import { AgentTask, InternalAgent } from '../../../backend/types';
+import { formatToInputDate, formatToInputDateTime } from '../../../lib/utils/dateUtils';
 
 interface TaskCreateModalProps {
   isOpen: boolean;
@@ -36,35 +37,6 @@ interface TaskCreateModalProps {
   ) => void;
   taskToEdit?: AgentTask | null;
   activeConsultationId?: string;
-}
-
-// YYYY-MM-DD 포맷팅 (input type="date" 전용)
-function formatToInputDate(dateStr?: string): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) {
-    if (dateStr.length >= 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.slice(0, 10))) {
-      return dateStr.slice(0, 10);
-    }
-    return '';
-  }
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// YYYY-MM-DDTHH:mm 포맷팅 (input type="datetime-local" 전용)
-function formatToInputDateTime(dateStr?: string): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
