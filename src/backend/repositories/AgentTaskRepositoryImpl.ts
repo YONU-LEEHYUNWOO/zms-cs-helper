@@ -117,25 +117,7 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
 
         if (!error && data) {
           const fetchedTasks = (data as AgentTask[]).filter((t) => !deletedTaskIds.has(t.id));
-
-          // 💡 로컬스토리지에는 있으나 DB에는 업로드되지 않은 태스크 탐지 (삭제된 ID 제외)
-          const dbTaskIds = new Set(fetchedTasks.map((t) => t.id));
-          const unsyncedLocalTasks = localTasks.filter(
-            (t) => !dbTaskIds.has(t.id) && !deletedTaskIds.has(t.id)
-          );
-
-          if (unsyncedLocalTasks.length > 0) {
-            console.log(`[AgentTaskRepo] 미동기화 로컬 TODO ${unsyncedLocalTasks.length}건 → Supabase DB 자동 마이그레이션 시작`);
-            for (const unsynced of unsyncedLocalTasks) {
-              await this.saveTask(unsynced);
-            }
-          }
-
-          const combinedMap = new Map<string, AgentTask>();
-          fetchedTasks.forEach((t) => combinedMap.set(t.id, t));
-          unsyncedLocalTasks.forEach((t) => combinedMap.set(t.id, t));
-
-          this.cache = Array.from(combinedMap.values()).sort(
+          this.cache = fetchedTasks.sort(
             (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           );
 
