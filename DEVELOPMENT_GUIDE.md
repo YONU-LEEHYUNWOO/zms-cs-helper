@@ -176,13 +176,14 @@ ZMS_CS_HELPER/
 * **통화 흐름 4줄 자연어 요약**: Gemini AI 프롬프트 튜닝을 통해 고정된 타이틀 대신 통화 흐름과 결과를 알기 쉽게 4줄 스토리로 자연스럽게 요약.
 * **🔍 고가독성 팝업 뷰어 모달 (`CtiDetailPanel.tsx`)**: 패널 가독성을 높이기 위해 시원한 넓은 뷰포트 모달과 대본 실시간 키워드 라이브 검색 및 1클릭 복사 클립보드 기능 구현.
 
-### 4.12 🧹 [리팩토링 계획] 거대 파일 단일 파일 크기 제한 (Rule 2) 준수 방안
-* **현황**: CTI 관련 기능을 한 파일에 처리하면서 `CtiAudioSummaryModal.tsx`가 약 1,100줄에 달하여 Rule 2(단일 파일 500줄 이하)를 위반하고 있음.
-* **분할 계획**:
-  1. `CtiCredentialForm.tsx` (CTI 로그인 정보 및 API Key 설정 패널) 분리.
-  2. `CtiRecordTable.tsx` (CTI 통화 이력 리스트 테이블 및 검색 필터) 분리.
-  3. `CtiFullViewerModal.tsx` (대화록 라이브 검색 기능을 포함한 팝업 뷰어) 분리.
-* **기대 효과**: 컴포넌트 복잡도를 대폭 낮추고 각 파일의 크기를 400줄 이하로 유지하여 유지 보수성 향상.
+#### 4.12 🧹 CTI 거대 파일 분할 리팩토링 (2026-08-26 완료)
+* **내용**: `CtiAudioSummaryModal.tsx` 파일이 약 1,100줄에 달하여 Rule 2(단일 파일 500줄 이하 제한)를 위반하고 있던 문제를 구조적으로 해결.
+* **구현 세부사항**:
+  1. `useCtiCollector.ts` [NEW]: 모든 CTI 크롤링 상태, AbortController 타임아웃 제어, Gemini 분석 캐시 및 API 핸들러 로직을 UI 로직과 완전히 격리하여 커스텀 훅으로 추출.
+  2. `CtiCredentialForm.tsx` [NEW]: CTI 접속 및 API Key 입력 설정을 담당하며, 내부 아코디언 토글 상태를 캡슐화 관리.
+  3. `CtiFullViewerModal.tsx` [NEW]: STT 대본 라이브 검색 및 1클릭 클립보드 복사를 포함하는 대형 팝업 뷰어 모달 분리.
+  4. `CtiRawHtmlModal.tsx` [NEW] & `CtiDiagnosticLogsModal.tsx` [NEW]: Raw HTML 원문 뷰어와 크롤링 단계별 실시간 진단 로그 모달 분리.
+* **결과**: 부모 컴포넌트인 `CtiAudioSummaryModal.tsx` 크기를 1,106줄에서 **281줄**로 75% 대폭 감축 완료.
 
 ---
 
@@ -219,4 +220,4 @@ ZMS_CS_HELPER/
 
 ---
 
-*최종 업데이트: 2026-08-21 (Supabase Auth 어드민 신규 계정 가입 연동 및 상용 배포/환경변수 키 관리 가이드 확립)*
+*최종 업데이트: 2026-08-26 (CTI 거대 파일 분할 리팩토링 완수 및 컴포넌트 구조 확립)*

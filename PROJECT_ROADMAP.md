@@ -79,13 +79,14 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 * **4줄 자연어 요약 규격화**: 고정 카테고리 라벨 대신 통화 흐름과 결과를 알기 쉽게 4줄의 자연어 서술형으로 요약하도록 프롬프트 고도화.
 * **🔍 고가독성 팝업 뷰어 모달 (`CtiDetailPanel.tsx`)**: 시원하고 시각적으로 큰 대형 모달 뷰포트, 대본 실시간 키워드 라이브 검색 및 1클릭 복사 클립보드 기능 제공.
 
+### 2-19. 🧹 CTI 거대 파일 분할 리팩토링 (2026-08-26 완료)
+* **Rule 2 준수 및 파일 다이어트**: 1,100줄을 초과하던 `CtiAudioSummaryModal.tsx`를 281줄 수준으로 약 75% 대폭 감축.
+* **상태 및 뷰 레이어 완전 분리**: CTI 크롤링 API 연동 및 상태 관리를 커스텀 훅 `useCtiCollector.ts`로 100% 이관.
+* **모듈형 아키텍처 수립**: 로그인 설정 폼(`CtiCredentialForm.tsx`), 전체 STT 뷰어(`CtiFullViewerModal.tsx`), HTML 뷰어(`CtiRawHtmlModal.tsx`), 진단 로그 뷰어(`CtiDiagnosticLogsModal.tsx`) 분할 생성 완료.
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
-
-### 🧹 [리팩토링 과제] 거대 파일 분할 및 500줄 이하 파일 제한 규칙(Rule 2) 준수
-* **목적**: 단일 파일 크기를 500줄 이하로 유지하여 코드 가독성과 유지 보수성을 대폭 향상.
-* **방안**: `CtiAudioSummaryModal.tsx` (1,100줄 초과)를 하위 컴포넌트(`CtiCredentialForm.tsx`, `CtiRecordTable.tsx`, `CtiFullViewerModal.tsx`)로 안전하게 쪼개고 결합 상태를 정밀 제어.
 
 ### 🌟 💡 [SaaS 고도화 1] 통화/상담 분석 통계 및 상담사 실적 대시보드 (Analytics & Report Dashboard)
 * **목적**: 콜 수신량, 문의 유형 비율, 상담사별 처리 실적 시각화.
@@ -99,9 +100,12 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 | 탑바 & 알림/계정 드롭다운 | `src/front/components/navigation/TopNavBar.tsx` | **계정 프로필 단일화, 미확인/확인 서브 탭 분류, 🔔 알림 펄스 애니메이션** |
 | 좌측 사이드바 | `src/front/components/navigation/LeftSidebar.tsx` | 메인 서브 메뉴 내비게이션, 하단 내 프로필 & 어드민 가입 모달 |
 | 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
-| CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석** |
+| CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석 (281줄 경량화)** |
 | CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
 | CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출**, CTI 키워드/유형 필터 |
+| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅** |
+| CTI 로그인 입력 폼 | `src/front/components/workspace/CtiCredentialForm.tsx` | CTI 로그인 설정창 및 Gemini API 키 캡슐화 폼 |
+| CTI 대본 전문 확대 모달 | `src/front/components/workspace/CtiFullViewerModal.tsx` | 대형 뷰포트 고가독성 STT 대본 및 요약문 라이브 검색 뷰어 |
 | 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 상단 KPI 카드 뷰 스위처, **내 계정 디폴트 필터링**, 태그/담당자/검색 필터 |
 | 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드** |
 | 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, `sub_status` 스마트 리마인드 알림, 사내 계정 간 다방향 실시간 동기화 |
@@ -111,4 +115,4 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ---
 
-*최종 업데이트: 2026-08-24 (Vercel 사내 SaaS 상용 배포 오픈, Gemini 3.5 Flash 2초 STT 최적화 및 CTI 상담사 매칭 완료) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-08-26 (CTI 거대 파일 분할 리팩토링 완수 및 컴포넌트 목록 최신화) / 담당 AI: Antigravity*
