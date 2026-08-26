@@ -303,7 +303,22 @@ export const useCtiCollector = ({
   /**
    * [2단계] 선택 통화건 Gemini AI 분석 실행 & 메모장 반영
    */
-  const handleAnalyzeSelectedCall = async (onlyMetadata: boolean = true) => {
+  const handleAnalyzeSelectedCall = async (onlyMetadata: boolean = true, targetCallIdx?: string) => {
+    const activeCallIdx = targetCallIdx || selectedRecordIdx;
+    if (activeCallIdx && activeCallIdx !== selectedRecordIdx) {
+      setSelectedRecordIdx(activeCallIdx);
+    }
+
+    // 🚨 이전 통화(A)의 분석 결과 잔상 즉시 초기화 (B건 요청 시 A 결과가 화면에 남는 현상 100% 방지)
+    const cachedResult = activeCallIdx ? callAnalysisCache.get(activeCallIdx) : undefined;
+    if (cachedResult && !onlyMetadata) {
+      setAudioAnalysisResult(cachedResult);
+      setActiveResultTab('summary');
+      return;
+    } else {
+      setAudioAnalysisResult(null);
+    }
+
     const targetPhone = phoneInput || parsedPhone || '';
     if (!targetPhone && !selectedFile && fetchedRecords.length === 0) {
       setToastMessage('⚠️ 분석할 통화건을 선택하거나 오디오 파일을 업로드해 주세요.');
@@ -320,7 +335,7 @@ export const useCtiCollector = ({
 
     try {
       // 선택된 레코드에서 이미 추출된 실제 fullUrl이 있으면 전달
-      const selectedRec = fetchedRecords.find(r => r.callIdx === selectedRecordIdx);
+      const selectedRec = fetchedRecords.find(r => r.callIdx === activeCallIdx);
       const preKnownMp3Url = selectedRec?.fullUrl && !selectedRec.fullUrl.includes('20520896') && !selectedRec.fullUrl.endsWith('00.mp3') ? selectedRec.fullUrl : undefined;
 
       const apiKey = apiKeyInput.trim() || getStoredGeminiApiKey(agentName);
@@ -337,7 +352,7 @@ export const useCtiCollector = ({
         ctiUserId: ctiUserIdInput.trim() || 'arsparking',
         ctiUserPw: ctiUserPwInput.trim() || 'arsparking',
         sessionCookie: ctiSessionCookieInput.trim() || undefined,
-        selectedCallIdx: selectedRecordIdx || undefined,
+        selectedCallIdx: activeCallIdx || undefined,
         preKnownMp3Url,
         onlyMetadata,
         userGeminiKey: apiKey || undefined,
@@ -417,8 +432,9 @@ export const useCtiCollector = ({
             formattedReport: reportText,
             filename: filename,
           };
-          if (selectedRecordIdx) {
-            setCallAnalysisCache(prev => new Map(prev).set(selectedRecordIdx, analysisObj));
+          const saveIdx = activeCallIdx || selectedRecordIdx;
+          if (saveIdx) {
+            setCallAnalysisCache(prev => new Map(prev).set(saveIdx, analysisObj));
           }
           setAudioAnalysisResult(analysisObj);
           setActiveResultTab('summary');

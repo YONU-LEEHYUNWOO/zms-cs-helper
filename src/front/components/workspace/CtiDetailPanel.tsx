@@ -32,7 +32,7 @@ interface CtiDetailPanelProps {
   } | null;
   isAnalyzingAudio: boolean;
   isAnalyzing: boolean;
-  handleAnalyzeSelectedCall: (onlyMetadata: boolean) => Promise<void>;
+  handleAnalyzeSelectedCall: (onlyMetadata?: boolean, targetCallIdx?: string) => Promise<void>;
   activeResultTab: 'summary' | 'script';
   setActiveResultTab: (tab: 'summary' | 'script') => void;
   setToastMessage: (msg: string | null) => void;

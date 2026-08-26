@@ -34,7 +34,7 @@ interface CtiRecordTableProps {
   filteredRecords: CtiCallRecord[];
   callAnalysisCache: Map<string, any>;
   isAnalyzingAudio: boolean;
-  handleAnalyzeSelectedCall: (onlyMetadata: boolean) => void;
+  handleAnalyzeSelectedCall: (onlyMetadata?: boolean, targetCallIdx?: string) => void;
   setAudioAnalysisResult: (result: any) => void;
   setActiveResultTab: (tab: 'summary' | 'script') => void;
   setToastMessage: (msg: string | null) => void;
@@ -352,10 +352,7 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
                             type="button"
                             disabled={isAnalyzingAudio}
                             onClick={() => {
-                              setSelectedRecordIdx(rec.callIdx);
-                              setTimeout(() => {
-                                handleAnalyzeSelectedCall(false);
-                              }, 50);
+                              handleAnalyzeSelectedCall(false, rec.callIdx);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                           >
