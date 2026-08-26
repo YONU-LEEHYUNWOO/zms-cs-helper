@@ -128,11 +128,11 @@ export const ServiceUserGuideModal: React.FC<ServiceUserGuideModalProps> = ({ is
                 <div className="border border-slate-200 rounded-xl p-4 space-y-2">
                   <h5 className="font-bold text-slate-800 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    1. 고객 정보 입력 & 마스킹 규칙
+                    1. 고객 정보 입력 & 자동 매칭 규칙
                   </h5>
                   <p className="text-slate-600">
-                    - 차량번호 및 연락처 중 하나만 입력해도 <strong>Supabase DB가 100% 자동 매칭</strong>됩니다.<br />
-                    - 정보 미입력 시 시스템이 안전 우회 식별자(<code className="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">no-phone-uuid</code>)를 사용하며 화면에는 깨끗하게 마스킹 표출됩니다.
+                    - 차량번호 또는 연락처 중 하나만 입력해도 과거 고객 상담 이력이 <strong>자동으로 100% 매칭</strong>되어 연결됩니다.<br />
+                    - 연락처나 차량번호가 없는 미등록 고객의 경우에도 식별 오류 없이 안전하게 상담 접수 및 저장이 가능합니다.
                   </p>
                 </div>
 
@@ -191,9 +191,9 @@ export const ServiceUserGuideModal: React.FC<ServiceUserGuideModalProps> = ({ is
                     2
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-800">Gemini 3.5 Flash 초고속 2초 STT & 3줄 요약</h5>
+                    <h5 className="font-bold text-slate-800">Gemini 3.5 Flash 초고속 2초 STT & 4단계 스토리 요약</h5>
                     <p className="text-slate-600 mt-1">
-                      오디오 MP3 파일을 2~3초 내에 초고속으로 파싱하여 핵심 3줄 요약, 고객 감정 상태(긍정/중립/화남), 그리고 전체 대화 STT 대본을 생성합니다. 클릭 한 번으로 상담 메모에 자동 적용됩니다.
+                      오디오 MP3 파일을 초고속으로 파싱하여 핵심 4단계 스토리 요약, 고객 감정 상태(긍정/중립/부정), 그리고 전체 대화 STT 대본을 생성합니다. 클릭 한 번으로 상담 메모에 자동 적용됩니다.
                     </p>
                   </div>
                 </div>
@@ -205,7 +205,7 @@ export const ServiceUserGuideModal: React.FC<ServiceUserGuideModalProps> = ({ is
                   <div>
                     <h5 className="font-bold text-slate-800">내선번호 ↔ 상담사 1:1 자동 매칭 배지</h5>
                     <p className="text-slate-600 mt-1">
-                      녹취 목록 및 상세 화면에서 내선번호(예: <code className="bg-slate-100 px-1">7997</code>)가 DB 상담원의 내선과 자동 비교되어 <span className="bg-blue-50 text-blue-700 border border-blue-100 font-bold px-2 py-0.5 rounded">👤 이현우 상담사</span> 배지로 시각화됩니다.
+                      녹취 목록 및 상세 화면에서 내선번호(예: <code className="bg-slate-100 px-1">7997</code>)가 DB 상담원의 내선과 자동 비교되어 <span className="bg-blue-50 text-blue-700 border border-blue-100 font-bold px-2 py-0.5 rounded">👤 해당 상담사</span> 배지로 시각화됩니다.
                     </p>
                   </div>
                 </div>
@@ -262,7 +262,7 @@ export const ServiceUserGuideModal: React.FC<ServiceUserGuideModalProps> = ({ is
                     실시간 편집 소프트 락 (Soft Lock)
                   </h5>
                   <p className="text-slate-600">
-                    타 상담원이 이미 해당 상담건을 작성/수정 중인 경우, 폼 상단에 <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">🟡 이동헌 상담원 편집 중</span> 펄스 알림 배지가 노출되며 저장 시 사전 경고 안내를 받습니다.
+                    타 상담원이 이미 해당 상담건을 작성/수정 중인 경우, 폼 상단에 <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">🟡 해당 상담사 편집 중</span> 펄스 알림 배지가 노출되며 저장 시 사전 경고 안내를 받습니다.
                   </p>
                 </div>
 
@@ -272,7 +272,7 @@ export const ServiceUserGuideModal: React.FC<ServiceUserGuideModalProps> = ({ is
                     전 사내 상담원 명단 & 내선 조회
                   </h5>
                   <p className="text-slate-600">
-                    신규 추가된 상담사 계정(예: 이동헌 상담원 등) 정보 및 내선번호가 사내 전체 공유되어, 어드민 패널 및 내 프로필 모달에서 전원의 상세 프로필을 다방면으로 조회할 수 있습니다.
+                    등록된 사내 모든 상담사 계정 정보 및 CTI 내선번호가 사내 전체 공유되어, 어드민 패널 및 사내 명단 탭에서 전원의 프로필을 다방면으로 조회할 수 있습니다.
                   </p>
                 </div>
               </div>
