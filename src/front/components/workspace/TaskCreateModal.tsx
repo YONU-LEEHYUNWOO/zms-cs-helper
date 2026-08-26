@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Calendar, User, Tag, BellRing, PlusCircle, AlertCircle, Clock } from 'lucide-react';
 import { AgentTask, InternalAgent } from '../../../backend/types';
-import { formatToInputDate, formatToInputTime } from '../../../lib/utils/dateUtils';
+import { formatToInputDateTime, calculateReminderTime, detectReminderOffset } from '../../../lib/utils/dateUtils';
 
 interface TaskCreateModalProps {
   isOpen: boolean;
@@ -52,9 +52,8 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
   const [taskTitle, setTaskTitle] = useState('');
   const [assignedAgent, setAssignedAgent] = useState(currentAgentName);
   const [selectedTag, setSelectedTag] = useState<'개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'>('개인메모');
-  const [dueDate, setDueDate] = useState('');
-  const [isTimeAlarmEnabled, setIsTimeAlarmEnabled] = useState(false);
-  const [alarmTime, setAlarmTime] = useState('09:00');
+  const [targetDateTime, setTargetDateTime] = useState('');
+  const [reminderOption, setReminderOption] = useState<'exact' | '10m' | '30m' | '1h' | 'none'>('exact');
 
   useEffect(() => {
     if (isOpen) {
@@ -62,22 +61,21 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
         setTaskTitle(taskToEdit.task_title || '');
         setAssignedAgent(taskToEdit.agent_name || currentAgentName);
         setSelectedTag(taskToEdit.tag || '개인메모');
-        setDueDate(formatToInputDate(taskToEdit.due_date) || formatToInputDate(new Date().toISOString()));
-
-        if (taskToEdit.reminder_datetime) {
-          setIsTimeAlarmEnabled(true);
-          setAlarmTime(formatToInputTime(taskToEdit.reminder_datetime));
-        } else {
-          setIsTimeAlarmEnabled(false);
-          setAlarmTime('09:00');
-        }
+        
+        const initialTarget = formatToInputDateTime(taskToEdit.due_date || taskToEdit.reminder_datetime) || formatToInputDateTime(new Date().toISOString());
+        setTargetDateTime(initialTarget);
+        
+        const offset = detectReminderOffset(taskToEdit.due_date, taskToEdit.reminder_datetime);
+        setReminderOption(offset);
       } else {
         setAssignedAgent(currentAgentName);
         setSelectedTag('개인메모');
         setTaskTitle('');
-        setDueDate(formatToInputDate(new Date().toISOString()));
-        setIsTimeAlarmEnabled(false);
-        setAlarmTime('09:00');
+        
+        const defaultDate = new Date();
+        defaultDate.setHours(defaultDate.getHours() + 1, 0, 0, 0);
+        setTargetDateTime(formatToInputDateTime(defaultDate.toISOString()));
+        setReminderOption('exact');
       }
     }
   }, [isOpen, taskToEdit, currentAgentName]);
@@ -91,17 +89,14 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
       return;
     }
 
-    const targetDueDate = dueDate || formatToInputDate(new Date().toISOString());
-    const finalReminderDatetime = isTimeAlarmEnabled && alarmTime
-      ? `${targetDueDate} ${alarmTime}`
-      : undefined;
+    const calculatedReminder = calculateReminderTime(targetDateTime, reminderOption);
 
     const payload = {
       task_title: taskTitle.trim(),
       agent_name: assignedAgent || currentAgentName,
       tag: selectedTag,
-      due_date: targetDueDate,
-      reminder_datetime: finalReminderDatetime,
+      due_date: targetDateTime ? targetDateTime.replace('T', ' ') : undefined,
+      reminder_datetime: calculatedReminder || undefined,
     };
 
     if (taskToEdit && onEditTask) {
@@ -220,81 +215,55 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
             />
           </div>
 
-          {/* 4. 마감일자 (Due Date) 지정 피커 */}
+          {/* 4. 마감 / 목표 일시 지정 피커 (Option 1) */}
           <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between">
               <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <Calendar className="w-4 h-4 text-indigo-600" />
-                <span>📅 마감 일자 지정</span>
+                <span>⏰ 마감 / 목표 일시 지정</span>
               </label>
               <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                type="datetime-local"
+                value={targetDateTime}
+                onChange={(e) => setTargetDateTime(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
           </div>
 
-          {/* 5. 특정 시/분 알림 설정 (ON/OFF 토글 스위치 방식) */}
-          <div className={`p-4 rounded-xl border transition-all space-y-3 ${
-            isTimeAlarmEnabled 
-              ? 'bg-blue-50/70 border-blue-200 shadow-2xs' 
-              : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  isTimeAlarmEnabled ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
-                  <BellRing className="w-4 h-4" />
-                </div>
-                <div>
-                  <label 
-                    className="font-bold text-slate-800 text-xs cursor-pointer select-none" 
-                    onClick={() => setIsTimeAlarmEnabled(!isTimeAlarmEnabled)}
-                  >
-                    특정 시/분 알림 받기
-                  </label>
-                  <p className="text-[11px] text-slate-500">
-                    {isTimeAlarmEnabled
-                      ? '🔔 지정한 특정 시/분에 알림 팝업이 울립니다.'
-                      : '⏰ OFF 시: 마감일 당일 오전 9시에 기본 알림이 울립니다.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Toggle Switch */}
-              <button
-                type="button"
-                onClick={() => setIsTimeAlarmEnabled(!isTimeAlarmEnabled)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  isTimeAlarmEnabled ? 'bg-blue-600' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                    isTimeAlarmEnabled ? 'translate-x-5' : 'translate-x-0'
+          {/* 5. 🔔 미리 알림 시점 1클릭 선택 (Option 1) */}
+          <div className="space-y-2 bg-blue-50/60 p-4 rounded-xl border border-blue-100">
+            <label className="font-bold text-blue-950 flex items-center justify-between text-xs mb-1">
+              <span className="flex items-center gap-1.5">
+                <BellRing className="w-4 h-4 text-blue-600" />
+                <span>🔔 알림 울림 시점 1클릭 선택</span>
+              </span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { id: 'exact', label: '🔔 정각 알림', sub: '목표 시각 정각 팝업' },
+                { id: '10m', label: '⏰ 10분 전', sub: '목표 10분 전 미리 팝업' },
+                { id: '30m', label: '⏰ 30분 전', sub: '목표 30분 전 미리 팝업' },
+                { id: '1h', label: '⏰ 1시간 전', sub: '목표 1시간 전 미리 팝업' },
+                { id: 'none', label: '🔕 알림 안함', sub: '팝업 없이 목록에만 표출' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setReminderOption(opt.id as any)}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    reminderOption === opt.id
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs font-bold ring-2 ring-blue-300'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}
-                />
-              </button>
+                >
+                  <span className="text-xs font-bold">{opt.label}</span>
+                  <span className={`text-[10px] ${reminderOption === opt.id ? 'text-blue-100' : 'text-slate-400'}`}>
+                    {opt.sub}
+                  </span>
+                </button>
+              ))}
             </div>
-
-            {/* ON 선택 시 나타나는 시/분 시간 선택 피커 */}
-            {isTimeAlarmEnabled && (
-              <div className="pt-2 border-t border-blue-100 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-150">
-                <span className="font-bold text-blue-900 text-xs flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  알림 울림 시각 지정:
-                </span>
-                <input
-                  type="time"
-                  value={alarmTime}
-                  onChange={(e) => setAlarmTime(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-mono font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
-                />
-              </div>
-            )}
           </div>
 
           {/* Actions */}

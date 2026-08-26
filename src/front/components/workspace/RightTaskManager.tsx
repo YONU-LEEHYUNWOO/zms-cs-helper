@@ -304,7 +304,7 @@ export const RightTaskManager: React.FC<RightTaskManagerProps> = ({
                     {t.due_date && (
                       <span className="text-[9px] font-mono text-indigo-700 bg-indigo-50 px-1 rounded border border-indigo-200 flex items-center gap-0.5">
                         <Clock className="w-2.5 h-2.5 text-indigo-600" />
-                        📅 {formatDisplayDate(t.due_date)}
+                        📅 {formatDisplayDateTime(t.due_date)}
                       </span>
                     )}
                     {t.reminder_datetime && (

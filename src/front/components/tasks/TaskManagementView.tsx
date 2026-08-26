@@ -511,7 +511,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                         {task.due_date && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
                             <Clock className="w-3 h-3 text-indigo-600" />
-                            📅 마감: {formatDisplayDate(task.due_date)}
+                            📅 마감: {formatDisplayDateTime(task.due_date)}
                           </span>
                         )}
 

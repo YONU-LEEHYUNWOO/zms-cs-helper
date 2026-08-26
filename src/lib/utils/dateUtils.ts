@@ -162,6 +162,48 @@ export function formatToInputTime(dateStr?: string): string {
 }
 
 /**
+ * Option 1: 목표/마감 일시(datetime-local) 및 미리 알림 옵션(정각, 10분전, 30분전, 1시간전, 알림안함) 계산
+ */
+export function calculateReminderTime(targetDateTimeStr: string, offset: string): string | null {
+  if (!targetDateTimeStr || offset === 'none') return null;
+  const formatted = targetDateTimeStr.includes(' ') ? targetDateTimeStr.replace(' ', 'T') : targetDateTimeStr;
+  const d = new Date(formatted);
+  if (isNaN(d.getTime())) return null;
+
+  let minusMinutes = 0;
+  if (offset === '10m') minusMinutes = 10;
+  else if (offset === '30m') minusMinutes = 30;
+  else if (offset === '1h') minusMinutes = 60;
+
+  const remDate = new Date(d.getTime() - minusMinutes * 60 * 1000);
+  const yyyy = remDate.getFullYear();
+  const mm = String(remDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(remDate.getDate()).padStart(2, '0');
+  const hh = String(remDate.getHours()).padStart(2, '0');
+  const min = String(remDate.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
+
+/**
+ * Option 1: 저장된 due_date와 reminder_datetime 비교하여 미리 알림 옵션 역추산
+ */
+export function detectReminderOffset(due_date?: string, reminder_datetime?: string): 'exact' | '10m' | '30m' | '1h' | 'none' {
+  if (!reminder_datetime) return 'none';
+  if (!due_date) return 'exact';
+
+  const d1 = new Date(due_date.includes(' ') ? due_date.replace(' ', 'T') : due_date).getTime();
+  const d2 = new Date(reminder_datetime.includes(' ') ? reminder_datetime.replace(' ', 'T') : reminder_datetime).getTime();
+  if (isNaN(d1) || isNaN(d2)) return 'exact';
+
+  const diffMin = Math.round((d1 - d2) / (1000 * 60));
+  if (diffMin === 10) return '10m';
+  if (diffMin === 30) return '30m';
+  if (diffMin === 60) return '1h';
+  if (diffMin === 0) return 'exact';
+  return 'exact';
+}
+
+/**
  * DB 저장용 ISO 타임스탬프 규격화 함수
  */
 export function normalizeToIsoString(dateStr?: string): string | null {
