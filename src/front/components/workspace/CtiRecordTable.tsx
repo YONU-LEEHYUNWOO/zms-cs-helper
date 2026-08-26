@@ -75,6 +75,7 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
   filteredRecords,
   callAnalysisCache,
   isAnalyzingAudio,
+  handleAnalyzeSelectedCall,
   setAudioAnalysisResult,
   setActiveResultTab,
   setToastMessage,
@@ -350,75 +351,11 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
                           <button
                             type="button"
                             disabled={isAnalyzingAudio}
-                            onClick={async () => {
+                            onClick={() => {
                               setSelectedRecordIdx(rec.callIdx);
-                              setAudioAnalysisResult(null);
-                              setActiveResultTab('summary');
-                              setIsAnalyzingAudio(true);
-                              setToastMessage(null);
-                              try {
-                                const targetPhone = phoneInput || '';
-                                const preKnownMp3Url = rec.fullUrl && !rec.fullUrl.endsWith('00.mp3') ? rec.fullUrl : undefined;
-                                const payload = {
-                                  phoneNumber: targetPhone,
-                                  extensionFilter: extensionInput.trim() || undefined,
-                                  ctiUserId: ctiUserIdInput.trim() || 'arsparking',
-                                  ctiUserPw: ctiUserPwInput.trim() || 'arsparking',
-                                  sessionCookie: ctiSessionCookieInput.trim() || undefined,
-                                  selectedCallIdx: rec.callIdx,
-                                  preKnownMp3Url,
-                                  onlyMetadata: false,
-                                  userGeminiKey: getStoredGeminiApiKey(''),
-                                  action: 'analyze_record',
-                                };
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 45000);
-                                let response: Response;
-                                try {
-                                  response = await fetch('/api/cti/process-recording', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload),
-                                    signal: controller.signal,
-                                  });
-                                  if (response.status === 404) {
-                                    response = await fetch('http://localhost:3000/api/cti/process-recording', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify(payload),
-                                      signal: controller.signal,
-                                    });
-                                  }
-                                } finally {
-                                  clearTimeout(timeoutId);
-                                }
-                                const data = await response.json();
-                                if (data.success) {
-                                  if (data.record && data.record.fullUrl) {
-                                    setFetchedRecords(prev =>
-                                      prev.map(r => r.callIdx === data.record.callIdx ? { ...r, fullUrl: data.record.fullUrl, mp3Url: data.record.mp3Url } : r)
-                                    );
-                                  }
-                                  const result = {
-                                    summaries: data.summaries || [],
-                                    sttScript: data.sttScript || '',
-                                    keyIssues: data.keyIssues || '',
-                                    sentiment: data.sentiment || '',
-                                    formattedReport: data.formattedReport || '',
-                                    filename: data.record?.filename || 'cti_auto_record.mp3',
-                                  };
-                                  setCallAnalysisCache(prev => new Map(prev).set(rec.callIdx, result));
-                                  setAudioAnalysisResult(result);
-                                  setActiveResultTab('summary');
-                                  setToastMessage('✅ AI 분석 완료! 핵심 요약 탭을 확인하세요.');
-                                } else {
-                                  setToastMessage(`⚠️ ${data.message || '분석에 실패했습니다.'}`);
-                                }
-                              } catch (err: any) {
-                                setToastMessage(`⚠️ 분석 오류: ${err?.message || err}`);
-                              } finally {
-                                setIsAnalyzingAudio(false);
-                              }
+                              setTimeout(() => {
+                                handleAnalyzeSelectedCall(false);
+                              }, 50);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                           >
