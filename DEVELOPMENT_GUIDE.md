@@ -149,6 +149,18 @@ ZMS_CS_HELPER/
 * **DB 엑셀 다운로드**: `[📥 업무/TODO DB 엑셀 다운로드]` 버튼으로 1클릭 CSV 내보내기 지원.
 * **DB 테이블 뷰 스위처**: `📞 상담 마스터 DB` | `📋 업무/TODO DB` | `📑 전체 DB 통합 보기` 1클릭 서브 내비게이션 탑재.
 
+### 4.4 🛡️ AgentTaskRepositoryImpl 전담 리포지토리 & 다단계 이관 연쇄 히스토리 (`AgentTaskRepositoryImpl.ts`)
+* **전담 리포지토리 구축 (`IAgentTaskRepository.ts` & `AgentTaskRepositoryImpl.ts`)**:
+  - `consultations` 및 `customers`와 동일하게 `agent_tasks` 전담 리포지토리 모듈 신설.
+  - `verifyConsultationId()` 사전 가드: DB 저장 전 `consultation_id`가 Supabase `consultations` DB에 실제 존재하는지 확인하고, 미존재 시 `null`로 자동 변환하여 **23503 FK 제약조건 에러 100% 사전 차단**.
+* **Supabase DB 단일 진실의 원천 (Single Source of Truth)**:
+  - `getAllTasks()`에서 Supabase 중앙 클라우드 DB 조회 결과만을 단일 진실의 원천으로 설정.
+  - `DELETED_KEY ('local_deleted_task_ids')` 트래킹 가드를 통해 사용자가 삭제한 행이 롤백 재업로드되지 않도록 100% 보장.
+* **🔄 다단계 이관 연쇄 히스토리 타임라인 (`history JSONB`)**:
+  - Supabase `agent_tasks.history` JSONB 컬럼 연동.
+  - 상담사 간 업무 전달 시마다 `{ from_agent, to_agent, transferred_at }` 배열을 누적 기록.
+  - UI 카드에 **`🔄 전달 히스토리: 이현우 ➔ 이동헌 ➔ 김상담`** 시각 배지 및 마우스 호버 타임라인 툴팁 표출.
+
 ### 4.4 🛡️ 배포 전 다방향 다중 계정 실시간 연동 검증 전략 (Pre-Deployment Verification)
 * **이중 창 라이브 검증 프로토콜**: 일반 창(상담사 A) + 시크릿 창(상담사 B) 동시 접속 후 상담 이관 / TODO 업무 전달 시 1초 내 Realtime 알림 뱃지 및 칸반/캘린더 라이브 동기화 검증.
 * **상담사 샌드박스 다중 계정 빠른 전환기**: 단일 개발 PC에서도 1클릭 계정 스위칭을 통해 각 상담원별 격리된 알림 및 담당 업무 화면 정합성 사전 검수.

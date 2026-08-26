@@ -84,12 +84,37 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 * **상태 및 뷰 레이어 완전 분리**: CTI 크롤링 API 연동 및 상태 관리를 커스텀 훅 `useCtiCollector.ts`로 100% 이관.
 * **모듈형 아키텍처 수립**: 로그인 설정 폼(`CtiCredentialForm.tsx`), 전체 STT 뷰어(`CtiFullViewerModal.tsx`), HTML 뷰어(`CtiRawHtmlModal.tsx`), 진단 로그 뷰어(`CtiDiagnosticLogsModal.tsx`) 분할 생성 완료.
 
+### 2-20. 🛡️ AgentTaskRepositoryImpl 구축 & TODO 다단계 이관 연쇄 히스토리 타임라인 (2026-08-26 완료)
+* **AgentTaskRepositoryImpl 전담 리포지토리 구축 (`IAgentTaskRepository.ts`, `AgentTaskRepositoryImpl.ts`)**:
+  * `consultations` 및 `customers`와 동일하게 `agent_tasks` 전담 리포지토리 모듈 신설.
+  * `verifyConsultationId()` 사전 가드로 DB 저장 전 `consultation_id` 존재 여부 확인하여 **23503 FK 에러 100% 사전 차단**.
+* **Supabase DB 단일 진실의 원천 & 롤백 차단**:
+  * Supabase 중앙 클라우드 DB 결과만을 단일 진실의 원천으로 설정.
+  * `DELETED_KEY ('local_deleted_task_ids')` 트래킹 가드를 통해 사용자가 UI/데이터 마스터에서 삭제한 Task ID가 롤백 재업로드되지 않도록 100% 보장.
+* **🔄 다단계 이관 연쇄 히스토리 타임라인 (`history JSONB`)**:
+  * Supabase MCP를 통해 `agent_tasks.history` JSONB 컬럼 추가.
+  * `TaskTransferHistory` 인터페이스 정의 및 `A ➔ B ➔ C ➔ D` 연쇄 전달 히스토리와 시각을 실시간 누적 저장.
+  * UI 관제 카드 및 관리자 DB 거울 테이블에 **`🔄 전달 히스토리: 이현우 ➔ 이동헌 ➔ 김상담`** 시각 배지 및 마우스 호버 타임라인 툴팁 연동 완결.
+
 ---
 
-## 3. 🟡 차세대 SaaS 고도화 과제 (Future Roadmap)
+## 3. 🟡 차세대 SaaS 고도화 & UI/UX 개선 기획 로드맵 (Future Roadmap)
 
-### 🌟 💡 [SaaS 고도화 1] 통화/상담 분석 통계 및 상담사 실적 대시보드 (Analytics & Report Dashboard)
-* **목적**: 콜 수신량, 문의 유형 비율, 상담사별 처리 실적 시각화.
+### 3-1. 🎨 UI/UX 감성 및 인터랙션 디자인 고도화 (UI Aesthetics & Micro-Animations)
+* **목적**: 사용자가 첫눈에 감탄하는 프리미엄 SaaS 인터페이스 제공.
+* **상세 기획**:
+  1. **Glassmorphism & Vibrant Gradient Theme**: 카드 및 탑바에 은은한 다크 딥 블루 블러 효과 및 HSLTailored 수직 그라데이션 적용.
+  2. **Micro-Animations (Framer Motion / Lucide Active Effect)**: 버튼 클릭 및 탭 전환 시 0.15초 바운스 micro-animation 및 알림 뱃지 pulse 인터랙션 적용.
+  3. **Toast Notification Center**: 우측 하단 3초 수직 스택 Toast 메시지 컨테이너 구축하여 DB 저장/삭제/이관 결과를 시각적으로 알림.
+
+### 3-2. 🎵 CTI 오디오 파동(Waveform) 인터랙티브 플레이어 고도화
+* **목적**: CTI 녹취 파일 재생 시 실제 오디오 파형(Waveform)을 시각화하고 구간 클릭 이동 기능 제공.
+* **상세 기획**:
+  1. `WaveSurfer.js` 또는 Web Audio API 기반 오디오 파동 캔버스 탑재.
+  2. STT 대본의 특정 구간 텍스트 클릭 시 오디오 해당 초(Second)로 1초 만에 인디케이터 점프 재생.
+
+### 3-3. 🔍 다중 조건 스마트 검색 & 필터링 툴바
+* **목적**: 차량번호, 연락처, 주차장명, 담당자, 날짜 범위를 결합한 복합 스마트 검색기 제공.
 
 ---
 
@@ -97,6 +122,8 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 | 기능 | 핵심 파일 | 설명 및 주의사항 |
 |---|---|---|
+| TODO 전담 리포지토리 | `src/backend/repositories/AgentTaskRepositoryImpl.ts` | **Supabase DB 단일 원본, FK(consultation_id) 사전 검증, DELETED_KEY 롤백 차단** |
+| TODO 리포지토리 규격 | `src/backend/repositories/IAgentTaskRepository.ts` | TODO 데이터 CRUD 및 다단계 이관 연쇄 히스토리 메소드 인터페이스 |
 | 탑바 & 알림/계정 드롭다운 | `src/front/components/navigation/TopNavBar.tsx` | **계정 프로필 단일화, 미확인/확인 서브 탭 분류, 🔔 알림 펄스 애니메이션** |
 | 좌측 사이드바 | `src/front/components/navigation/LeftSidebar.tsx` | 메인 서브 메뉴 내비게이션, 하단 내 프로필 & 어드민 가입 모달 |
 | 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
@@ -106,8 +133,8 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 | CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅** |
 | CTI 로그인 입력 폼 | `src/front/components/workspace/CtiCredentialForm.tsx` | CTI 로그인 설정창 및 Gemini API 키 캡슐화 폼 |
 | CTI 대본 전문 확대 모달 | `src/front/components/workspace/CtiFullViewerModal.tsx` | 대형 뷰포트 고가독성 STT 대본 및 요약문 라이브 검색 뷰어 |
-| 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 상단 KPI 카드 뷰 스위처, **내 계정 디폴트 필터링**, 태그/담당자/검색 필터 |
-| 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드** |
+| 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 상단 KPI 카드 뷰 스위처, **내 계정 디폴트 필터링**, **🔄 다단계 이관 연쇄 히스토리 배지** |
+| 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드, 전달 히스토리** |
 | 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, `sub_status` 스마트 리마인드 알림, 사내 계정 간 다방향 실시간 동기화 |
 | 주차/연장/차량변경 동적 폼 | `src/front/components/workspace/CenterCustomerForm.tsx` | 주차 문의/연장/차량 변경 동적 상세 폼 확장 동기화 |
 | 문의 프로세스 스텝퍼 | `src/front/components/workspace/ProcessStepper.tsx` | 주차 문의 4단계 스텝퍼, 차량 변경 3단계 스텝퍼 (`유관 부서/공급사 확인 중`) |
@@ -115,4 +142,4 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ---
 
-*최종 업데이트: 2026-08-26 (CTI 거대 파일 분할 리팩토링 완수 및 컴포넌트 목록 최신화) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-08-26 (AgentTaskRepositoryImpl 전담 리포지토리, 다단계 이관 연쇄 히스토리 완수 및 UI/UX 로드맵 수립) / 담당 AI: Antigravity*

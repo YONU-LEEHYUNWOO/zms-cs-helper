@@ -121,11 +121,13 @@ async function handleCtiRequest(req: any, res: any) {
       logs = [...loginRes.logs];
     }
 
-    const searchRes = await ctiCollectorService.searchCallRecordsWithLogs(cleanPhone, cookies, targetExt);
-    let records: any[] = searchRes.records;
-    logs = [...logs, ...searchRes.logs];
+    let records: any[] = [];
+    let targetRecord: any = null;
 
     if (action === 'search_only') {
+      const searchRes = await ctiCollectorService.searchCallRecordsWithLogs(cleanPhone, cookies, targetExt);
+      records = searchRes.records;
+      logs = [...logs, ...searchRes.logs];
       return res.json({
         success: true,
         records,
@@ -134,54 +136,39 @@ async function handleCtiRequest(req: any, res: any) {
       });
     }
 
-    let targetRecord: any = null;
-    if (records && records.length > 0) {
-      if (selectedCallIdx) {
-        targetRecord = records.find((r) => r.callIdx === selectedCallIdx) || records[0];
-      } else {
-        targetRecord = records[0];
-      }
-
-      if (targetRecord && targetRecord.callIdx) {
+    if (selectedCallIdx || (preKnownMp3Url && !preKnownMp3Url.endsWith('00.mp3'))) {
+      logs.push(`⚡ [초고속 단축 경로] callIdx(${selectedCallIdx}) 분석 요청 ➔ 16페이지 중복 목록 검색 스킵 및 MP3 직행 파싱`);
+      let liveMp3Url = preKnownMp3Url;
+      if (!liveMp3Url || liveMp3Url.endsWith('00.mp3') || liveMp3Url.includes('20520896')) {
         try {
-          logs.push(`[5단계] detail_view.jsp?call_idx=${targetRecord.callIdx} MP3 URL 추출 시도...`);
-          const liveMp3Url = await ctiCollectorService.fetchDetailViewAndMp3Url(targetRecord.callIdx, cookies);
-          if (liveMp3Url) {
-            targetRecord.fullUrl = liveMp3Url;
-            targetRecord.mp3Url = liveMp3Url;
-            targetRecord.filename = liveMp3Url.split('/').pop() || 'recording.mp3';
-            logs.push(`✅ [5단계 성공] MP3 실시간 URL 획득: ${liveMp3Url}`);
-          } else if (preKnownMp3Url && !preKnownMp3Url.endsWith('00.mp3')) {
-            targetRecord.fullUrl = preKnownMp3Url;
-            targetRecord.mp3Url = preKnownMp3Url;
-            targetRecord.filename = String(preKnownMp3Url).split('/').pop() || 'recording.mp3';
-          }
+          logs.push(`[5단계] detail_view.jsp?call_idx=${selectedCallIdx} MP3 URL 추출 시도...`);
+          liveMp3Url = await ctiCollectorService.fetchDetailViewAndMp3Url(String(selectedCallIdx), cookies);
+          if (liveMp3Url) logs.push(`✅ [5단계 성공] MP3 실시간 URL 획득: ${liveMp3Url}`);
         } catch (detErr: any) {
           logs.push(`⚠️ [5단계 예외] detail_view 파싱 실패: ${detErr?.message || detErr}`);
         }
       }
-    } else {
-      const now = new Date();
-      const ymd = now.toISOString().slice(0, 10);
-      const timeStr = now.toTimeString().slice(0, 5);
-      const ext = targetExt || '7997';
-      const filename = `${ymd.replace(/-/g, '')}_164455_From${cleanPhone}_To${ext}.mp3`;
 
       targetRecord = {
-        callIdx: selectedCallIdx || '20520896',
-        memberPhone: ext.length === 4 ? `070-7931-${ext}` : '070-7931-7997',
-        guestPhone: cleanPhone.length === 11 ? `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 7)}-${cleanPhone.slice(7)}` : cleanPhone,
-        callDateStr: `${ymd} ${timeStr}`,
+        callIdx: String(selectedCallIdx || '20520896'),
+        memberPhone: targetExt.length === 4 ? `070-7931-${targetExt}` : '070-7931-7997',
+        guestPhone: cleanPhone,
+        callDateStr: new Date().toISOString().slice(0, 16).replace('T', ' '),
         callType: 'in',
-        durationStr: '1분 43초',
+        durationStr: '통화',
         statusText: '통화성공',
-        detailUrl: 'detail_view.jsp?call_idx=20520896',
-        fullUrl: `http://202.30.232.240/link/arsparking/202608/13/${filename}`,
-        relativeUrl: `/link/arsparking/202608/13/${filename}`,
-        filename,
-        isSimulation: true,
+        fullUrl: liveMp3Url || '',
+        mp3Url: liveMp3Url || '',
+        filename: liveMp3Url ? String(liveMp3Url).split('/').pop() || 'recording.mp3' : 'recording.mp3',
       };
       records = [targetRecord];
+    } else {
+      const searchRes = await ctiCollectorService.searchCallRecordsWithLogs(cleanPhone, cookies, targetExt);
+      records = searchRes.records;
+      logs = [...logs, ...searchRes.logs];
+      if (records && records.length > 0) {
+        targetRecord = records[0];
+      }
     }
 
     const isMetadataOnly = body.onlyMetadata !== false;

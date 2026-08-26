@@ -9,6 +9,7 @@ import React from 'react';
 import { Search, Loader2, Sparkles, Mic, RotateCcw } from 'lucide-react';
 import { CtiCallRecord } from '../../../backend/services/cti/ctiCollectorService';
 import { InternalAgent } from '../../../backend/types';
+import { getStoredGeminiApiKey } from '../../../lib/utils/geminiApi';
 
 interface CtiRecordTableProps {
   agents?: InternalAgent[];
@@ -367,6 +368,7 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
                                   selectedCallIdx: rec.callIdx,
                                   preKnownMp3Url,
                                   onlyMetadata: false,
+                                  userGeminiKey: getStoredGeminiApiKey(''),
                                   action: 'analyze_record',
                                 };
                                 const controller = new AbortController();
