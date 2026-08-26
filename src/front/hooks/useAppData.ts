@@ -695,7 +695,6 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
               }
               return t;
             });
-            localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
             return updated;
           });
         }
