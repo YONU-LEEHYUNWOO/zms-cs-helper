@@ -71,19 +71,19 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
   const [activeTabFilter, setActiveTabFilter] = useState<'my' | 'sent' | 'today' | 'all' | 'completed'>('my');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
-  const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>(currentAgentName || '');
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<AgentTask | null>(null);
-
-  const activeAgent = selectedAgentFilter || currentAgentName;
 
   // 1. 탭 필터링
   const tabFilteredTasks = tasks.filter((t) => {
     if (activeTabFilter === 'my') {
-      return t.agent_name === activeAgent && !t.is_completed;
+      const targetAgent = selectedAgentFilter || currentAgentName;
+      return t.agent_name === targetAgent && !t.is_completed;
     }
     if (activeTabFilter === 'sent') {
-      return t.created_by === activeAgent && t.agent_name !== activeAgent && !t.is_completed;
+      const targetAgent = selectedAgentFilter || currentAgentName;
+      return t.created_by === targetAgent && t.agent_name !== targetAgent && !t.is_completed;
     }
     if (activeTabFilter === 'today') {
       if (t.is_completed || !t.due_date) return false;
@@ -99,13 +99,15 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
         : true;
       return t.is_completed && isMatchAgent;
     }
+
+    // activeTabFilter === 'all' (전체 상담사 TODO)
     const isMatchAgent = selectedAgentFilter
       ? (t.agent_name === selectedAgentFilter || t.created_by === selectedAgentFilter)
       : true;
     return !t.is_completed && isMatchAgent;
   });
 
-  // 2. 검색어 & 태그 & 상담사 필터링
+  // 2. 검색어 & 태그 필터링
   const filteredTasks = tabFilteredTasks.filter((t) => {
     const matchQuery = searchQuery.trim()
       ? t.task_title.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
@@ -118,16 +120,14 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
   });
 
   // 통계 계산
-  const myPendingCount = tasks.filter((t) => t.agent_name === activeAgent && !t.is_completed).length;
-  const sentPendingCount = tasks.filter((t) => t.created_by === activeAgent && t.agent_name !== activeAgent && !t.is_completed).length;
-  const completedCount = tasks.filter((t) => t.is_completed && (selectedAgentFilter ? (t.agent_name === selectedAgentFilter || t.created_by === selectedAgentFilter) : true)).length;
+  const myPendingCount = tasks.filter((t) => t.agent_name === currentAgentName && !t.is_completed).length;
+  const sentPendingCount = tasks.filter((t) => t.created_by === currentAgentName && t.agent_name !== currentAgentName && !t.is_completed).length;
+  const allPendingCount = tasks.filter((t) => !t.is_completed).length;
+  const completedCount = tasks.filter((t) => t.is_completed).length;
   const dueTodayCount = tasks.filter((t) => {
     if (t.is_completed || !t.due_date) return false;
     const todayStr = new Date().toISOString().slice(0, 10);
-    const isMatchAgent = selectedAgentFilter
-      ? (t.agent_name === selectedAgentFilter || t.created_by === selectedAgentFilter)
-      : true;
-    return t.due_date.startsWith(todayStr) && isMatchAgent;
+    return t.due_date.startsWith(todayStr);
   }).length;
 
   const handleGoToConsultation = (consId: string) => {
@@ -153,28 +153,32 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6 font-sans">
-      {/* 1. Header & Quick Actions */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 font-sans">
+      {/* 1. Header Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-2xs">
-              <CheckSquare className="w-5 h-5" />
-            </div>
-            📋 업무(Task) & TODO 실시간 통합 관제
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            DB 등록 상담사 간 다방향 업무 이관 및 나 전용 개인 메모/리마인더를 통합 관제합니다.
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-6 h-6 text-blue-400" />
+            <h2 className="text-xl font-black tracking-tight">📋 업무 & TODO 관제 센터</h2>
+            <span className="bg-blue-600/30 text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/30">
+              실시간 다방향 동기화 중
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 mt-1">
+            전 사내 상담원의 후속 조치 리마인더, 업무 이관 내역 및 개인 메모를 100% 실시간 공유 관제합니다.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 shrink-0"
+          onClick={() => {
+            setTaskToEdit(null);
+            setShowCreateModal(true);
+          }}
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>➕ 신규 업무/TODO 등록</span>
+          <span>➕ 신규 TODO / 업무 이관 등록</span>
         </button>
       </div>
 
@@ -183,7 +187,10 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
         {/* Card 1: 내 담당 미완료 TODO */}
         <button
           type="button"
-          onClick={() => setActiveTabFilter('my')}
+          onClick={() => {
+            setActiveTabFilter('my');
+            setSelectedAgentFilter(currentAgentName);
+          }}
           className={`p-4 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer active:scale-98 ${
             activeTabFilter === 'my'
               ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/30 shadow-sm'
@@ -204,7 +211,10 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
         {/* Card 2: 내가 타 상담사에 전달건 */}
         <button
           type="button"
-          onClick={() => setActiveTabFilter('sent')}
+          onClick={() => {
+            setActiveTabFilter('sent');
+            setSelectedAgentFilter(currentAgentName);
+          }}
           className={`p-4 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer active:scale-98 ${
             activeTabFilter === 'sent'
               ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/30 shadow-sm'
@@ -243,24 +253,27 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
           </div>
         </button>
 
-        {/* Card 4: 처리 완료된 TODO */}
+        {/* Card 4: 사내 전체 상담사 TODO */}
         <button
           type="button"
-          onClick={() => setActiveTabFilter('completed')}
+          onClick={() => {
+            setActiveTabFilter('all');
+            setSelectedAgentFilter('');
+          }}
           className={`p-4 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer active:scale-98 ${
-            activeTabFilter === 'completed'
-              ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/30 shadow-sm'
-              : 'bg-white border-slate-200 shadow-2xs hover:border-emerald-300 hover:bg-slate-50/80'
+            activeTabFilter === 'all'
+              ? 'bg-slate-800 border-slate-900 text-white shadow-sm ring-2 ring-slate-700/30'
+              : 'bg-white border-slate-200 shadow-2xs hover:border-slate-400 hover:bg-slate-50/80'
           }`}
         >
           <div>
-            <p className="text-xs font-bold text-slate-600">✅ 처리 완료된 TODO</p>
-            <p className="text-2xl font-black text-emerald-600 mt-1">{completedCount}건</p>
+            <p className={`text-xs font-bold ${activeTabFilter === 'all' ? 'text-slate-200' : 'text-slate-600'}`}>👥 사내 전체 상담사 TODO</p>
+            <p className={`text-2xl font-black mt-1 ${activeTabFilter === 'all' ? 'text-white' : 'text-slate-900'}`}>{allPendingCount}건</p>
           </div>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-            activeTabFilter === 'completed' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-600'
+            activeTabFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700'
           }`}>
-            <CheckSquare className="w-5 h-5" />
+            <Filter className="w-5 h-5" />
           </div>
         </button>
       </div>
@@ -271,7 +284,10 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
         <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/80 text-xs font-bold gap-1 flex-wrap">
           <button
             type="button"
-            onClick={() => setActiveTabFilter('my')}
+            onClick={() => {
+              setActiveTabFilter('my');
+              setSelectedAgentFilter(currentAgentName);
+            }}
             className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeTabFilter === 'my'
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -282,7 +298,10 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTabFilter('sent')}
+            onClick={() => {
+              setActiveTabFilter('sent');
+              setSelectedAgentFilter(currentAgentName);
+            }}
             className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeTabFilter === 'sent'
                 ? 'bg-amber-600 text-white shadow-xs'
@@ -304,14 +323,17 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTabFilter('all')}
+            onClick={() => {
+              setActiveTabFilter('all');
+              setSelectedAgentFilter('');
+            }}
             className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeTabFilter === 'all'
                 ? 'bg-slate-800 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-white/70'
             }`}
           >
-            👥 전체 상담사 TODO
+            👥 전체 상담사 TODO ({allPendingCount})
           </button>
           <button
             type="button"
@@ -346,15 +368,17 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
             onChange={(e) => setSelectedAgentFilter(e.target.value)}
             className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none cursor-pointer"
           >
+            <option value="">🌐 사내 전체 상담사 업무 보기</option>
             {currentAgentName && (
               <option value={currentAgentName}>👤 내 업무만 보기 ({currentAgentName})</option>
             )}
-            <option value="">🌐 사내 전체 상담사 업무</option>
-            {agents.map((ag) => (
-              <option key={ag.id} value={ag.agent_name}>
-                {ag.agent_name} 상담사
-              </option>
-            ))}
+            {agents
+              .filter((ag) => ag.agent_name !== currentAgentName)
+              .map((ag) => (
+                <option key={ag.id} value={ag.agent_name}>
+                  👤 {ag.agent_name} 상담사
+                </option>
+              ))}
           </select>
 
           <div className="relative w-full sm:w-48">

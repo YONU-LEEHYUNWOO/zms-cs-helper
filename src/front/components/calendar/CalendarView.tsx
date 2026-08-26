@@ -71,6 +71,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [localTasks, setLocalTasks] = useState<AgentTask[]>(tasks);
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  React.useEffect(() => {
+    setLocalTasks(tasks);
+  }, [tasks]);
+
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
 
