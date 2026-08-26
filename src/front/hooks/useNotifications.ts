@@ -211,10 +211,16 @@ export function useNotifications({
     const nowTime = Date.now();
 
     myPendingTasks.forEach((t) => {
-      // 마감/알림 일시 타임스탬프 파싱 검증 (reminder_datetime 우선, due_date 폴백)
-      const targetTimeStr = t.reminder_datetime || t.due_date;
+      // Option 2: reminder_datetime(특정 시/분) 우선, 없을 경우 due_date 당일 오전 09:00 기본 알림
+      let targetTimeStr = t.reminder_datetime;
+      if (!targetTimeStr && t.due_date) {
+        const cleanDate = t.due_date.slice(0, 10);
+        targetTimeStr = `${cleanDate} 09:00`;
+      }
+
       if (targetTimeStr) {
-        const targetTime = new Date(targetTimeStr).getTime();
+        const formatted = targetTimeStr.includes(' ') ? targetTimeStr.replace(' ', 'T') : targetTimeStr;
+        const targetTime = new Date(formatted).getTime();
 
         if (!isNaN(targetTime) && targetTime <= nowTime) {
           const tagText = t.tag ? `[${t.tag}] ` : '';
@@ -222,8 +228,8 @@ export function useNotifications({
           newNotifications.push({
             id: notifId,
             type: 'task_due',
-            title: t.reminder_datetime ? '🔔 TODO 알림 시각 도달' : '⏰ TODO/업무 마감 알림',
-            body: `${tagText}"${t.task_title}" ${t.reminder_datetime ? '알림 시각이' : '마감 시각이'} 도달했습니다.`,
+            title: t.reminder_datetime ? '🔔 TODO 지정 알림 시각 도달' : '⏰ TODO 당일 리마인드 알림 (09시)',
+            body: `${tagText}"${t.task_title}" ${t.reminder_datetime ? '알림 시각이' : '당일 마감 시각이'} 도달했습니다.`,
             consultationId: t.consultation_id,
             taskId: t.id,
             isRead: readIds.has(notifId),

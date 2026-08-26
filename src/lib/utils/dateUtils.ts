@@ -139,6 +139,29 @@ export function formatToDbReminderDateTime(dateStr?: string): string | null {
 }
 
 /**
+ * HTML5 <input type="time"> 바인딩 전용 포맷터 (예: "14:30")
+ */
+export function formatToInputTime(dateStr?: string): string {
+  if (!dateStr) return '09:00';
+  const str = dateStr.trim();
+  if (/^\d{2}:\d{2}$/.test(str)) return str;
+
+  try {
+    const formatted = str.includes(' ') ? str.replace(' ', 'T') : str;
+    const d = new Date(formatted);
+    if (isNaN(d.getTime())) {
+      const match = str.match(/\b\d{2}:\d{2}\b/);
+      return match ? match[0] : '09:00';
+    }
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${min}`;
+  } catch {
+    return '09:00';
+  }
+}
+
+/**
  * DB 저장용 ISO 타임스탬프 규격화 함수
  */
 export function normalizeToIsoString(dateStr?: string): string | null {

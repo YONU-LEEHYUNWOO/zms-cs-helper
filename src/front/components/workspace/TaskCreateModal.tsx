@@ -8,9 +8,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Calendar, User, Tag, BellRing, PlusCircle, AlertCircle } from 'lucide-react';
+import { X, CheckSquare, Calendar, User, Tag, BellRing, PlusCircle, AlertCircle, Clock } from 'lucide-react';
 import { AgentTask, InternalAgent } from '../../../backend/types';
-import { formatToInputDate, formatToInputDateTime } from '../../../lib/utils/dateUtils';
+import { formatToInputDate, formatToInputTime } from '../../../lib/utils/dateUtils';
 
 interface TaskCreateModalProps {
   isOpen: boolean;
@@ -53,7 +53,8 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
   const [assignedAgent, setAssignedAgent] = useState(currentAgentName);
   const [selectedTag, setSelectedTag] = useState<'개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'>('개인메모');
   const [dueDate, setDueDate] = useState('');
-  const [reminderDatetime, setReminderDatetime] = useState('');
+  const [isTimeAlarmEnabled, setIsTimeAlarmEnabled] = useState(false);
+  const [alarmTime, setAlarmTime] = useState('09:00');
 
   useEffect(() => {
     if (isOpen) {
@@ -61,21 +62,22 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
         setTaskTitle(taskToEdit.task_title || '');
         setAssignedAgent(taskToEdit.agent_name || currentAgentName);
         setSelectedTag(taskToEdit.tag || '개인메모');
-        setDueDate(formatToInputDate(taskToEdit.due_date));
+        setDueDate(formatToInputDate(taskToEdit.due_date) || formatToInputDate(new Date().toISOString()));
 
         if (taskToEdit.reminder_datetime) {
-          setReminderDatetime(formatToInputDateTime(taskToEdit.reminder_datetime));
-        } else if (taskToEdit.due_date && (taskToEdit.due_date.includes('T') || taskToEdit.due_date.includes(' '))) {
-          setReminderDatetime(formatToInputDateTime(taskToEdit.due_date));
+          setIsTimeAlarmEnabled(true);
+          setAlarmTime(formatToInputTime(taskToEdit.reminder_datetime));
         } else {
-          setReminderDatetime('');
+          setIsTimeAlarmEnabled(false);
+          setAlarmTime('09:00');
         }
       } else {
         setAssignedAgent(currentAgentName);
         setSelectedTag('개인메모');
         setTaskTitle('');
-        setDueDate('');
-        setReminderDatetime('');
+        setDueDate(formatToInputDate(new Date().toISOString()));
+        setIsTimeAlarmEnabled(false);
+        setAlarmTime('09:00');
       }
     }
   }, [isOpen, taskToEdit, currentAgentName]);
@@ -89,12 +91,17 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
       return;
     }
 
+    const targetDueDate = dueDate || formatToInputDate(new Date().toISOString());
+    const finalReminderDatetime = isTimeAlarmEnabled && alarmTime
+      ? `${targetDueDate} ${alarmTime}`
+      : undefined;
+
     const payload = {
       task_title: taskTitle.trim(),
       agent_name: assignedAgent || currentAgentName,
       tag: selectedTag,
-      due_date: dueDate || undefined,
-      reminder_datetime: reminderDatetime || undefined,
+      due_date: targetDueDate,
+      reminder_datetime: finalReminderDatetime,
     };
 
     if (taskToEdit && onEditTask) {
@@ -214,57 +221,80 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
           </div>
 
           {/* 4. 마감일자 (Due Date) 지정 피커 */}
-          <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-            <label className="font-bold text-slate-800 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
+          <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <Calendar className="w-4 h-4 text-indigo-600" />
-                <span>📅 마감 일자 지정 (선택 항목)</span>
-              </span>
-              {dueDate && (
-                <button
-                  type="button"
-                  onClick={() => setDueDate('')}
-                  className="text-[10px] text-red-600 hover:underline font-bold"
-                >
-                  지우기
-                </button>
-              )}
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            />
+                <span>📅 마감 일자 지정</span>
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
           </div>
 
-          {/* 5. 알림 일시 선택 피커 (선택 지정 시 알림 팝업 트리거) */}
-          <div className="space-y-1.5 bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
-            <label className="font-bold text-blue-950 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <BellRing className="w-4 h-4 text-blue-600" />
-                <span>🔔 알림 일시 지정 (시/분 선택)</span>
-              </span>
-              {reminderDatetime && (
-                <button
-                  type="button"
-                  onClick={() => setReminderDatetime('')}
-                  className="text-[10px] text-red-600 hover:underline font-bold"
-                >
-                  지우기
-                </button>
-              )}
-            </label>
-            <input
-              type="datetime-local"
-              value={reminderDatetime}
-              onChange={(e) => setReminderDatetime(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            />
-            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-              <AlertCircle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>지정한 알림 시/분에 🔔 상단 알림 벨 및 팝업 알림이 울립니다.</span>
-            </p>
+          {/* 5. 특정 시/분 알림 설정 (ON/OFF 토글 스위치 방식) */}
+          <div className={`p-4 rounded-xl border transition-all space-y-3 ${
+            isTimeAlarmEnabled 
+              ? 'bg-blue-50/70 border-blue-200 shadow-2xs' 
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                  isTimeAlarmEnabled ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+                }`}>
+                  <BellRing className="w-4 h-4" />
+                </div>
+                <div>
+                  <label 
+                    className="font-bold text-slate-800 text-xs cursor-pointer select-none" 
+                    onClick={() => setIsTimeAlarmEnabled(!isTimeAlarmEnabled)}
+                  >
+                    특정 시/분 알림 받기
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    {isTimeAlarmEnabled
+                      ? '🔔 지정한 특정 시/분에 알림 팝업이 울립니다.'
+                      : '⏰ OFF 시: 마감일 당일 오전 9시에 기본 알림이 울립니다.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                onClick={() => setIsTimeAlarmEnabled(!isTimeAlarmEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isTimeAlarmEnabled ? 'bg-blue-600' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                    isTimeAlarmEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* ON 선택 시 나타나는 시/분 시간 선택 피커 */}
+            {isTimeAlarmEnabled && (
+              <div className="pt-2 border-t border-blue-100 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-150">
+                <span className="font-bold text-blue-900 text-xs flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  알림 울림 시각 지정:
+                </span>
+                <input
+                  type="time"
+                  value={alarmTime}
+                  onChange={(e) => setAlarmTime(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-mono font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
+                />
+              </div>
+            )}
           </div>
 
           {/* Actions */}
