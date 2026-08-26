@@ -14,11 +14,34 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 
 export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
   private readonly STORAGE_KEY = 'local_agent_tasks';
+  private readonly DELETED_KEY = 'local_deleted_task_ids';
   private subscribers: Array<(tasks: AgentTask[]) => void> = [];
   private cache: AgentTask[] = [];
 
   constructor() {
     this.loadInitial();
+  }
+
+  /**
+   * 삭제된 Task ID 트래킹 세트 조회
+   */
+  private getDeletedTaskIds(): Set<string> {
+    const raw = localStorage.getItem(this.DELETED_KEY);
+    if (!raw) return new Set();
+    try {
+      return new Set(JSON.parse(raw));
+    } catch {
+      return new Set();
+    }
+  }
+
+  /**
+   * 삭제된 Task ID 등록
+   */
+  private markTaskIdAsDeleted(id: string): void {
+    const set = this.getDeletedTaskIds();
+    set.add(id);
+    localStorage.setItem(this.DELETED_KEY, JSON.stringify(Array.from(set)));
   }
 
   /**
@@ -77,6 +100,8 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
   }
 
   async getAllTasks(): Promise<AgentTask[]> {
+    const deletedTaskIds = this.getDeletedTaskIds();
+
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase
@@ -91,11 +116,13 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
         }
 
         if (!error && data) {
-          const fetchedTasks = data as AgentTask[];
+          const fetchedTasks = (data as AgentTask[]).filter((t) => !deletedTaskIds.has(t.id));
 
-          // 💡 로컬스토리지에는 있으나 DB에는 업로드되지 않은 태스크 탐지 및 Supabase DB로 복구 동기화
+          // 💡 로컬스토리지에는 있으나 DB에는 업로드되지 않은 태스크 탐지 (삭제된 ID 제외)
           const dbTaskIds = new Set(fetchedTasks.map((t) => t.id));
-          const unsyncedLocalTasks = localTasks.filter((t) => !dbTaskIds.has(t.id));
+          const unsyncedLocalTasks = localTasks.filter(
+            (t) => !dbTaskIds.has(t.id) && !deletedTaskIds.has(t.id)
+          );
 
           if (unsyncedLocalTasks.length > 0) {
             console.log(`[AgentTaskRepo] 미동기화 로컬 TODO ${unsyncedLocalTasks.length}건 → Supabase DB 자동 마이그레이션 시작`);
@@ -127,7 +154,7 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
     const raw = localStorage.getItem(this.STORAGE_KEY);
     if (raw) {
       try {
-        this.cache = JSON.parse(raw);
+        this.cache = (JSON.parse(raw) as AgentTask[]).filter((t) => !deletedTaskIds.has(t.id));
       } catch {
         this.cache = [];
       }
@@ -192,6 +219,8 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
   }
 
   async deleteTask(id: string): Promise<boolean> {
+    this.markTaskIdAsDeleted(id);
+
     if (isSupabaseConfigured() && supabase) {
       try {
         const { error } = await supabase.from('agent_tasks').delete().eq('id', id);
