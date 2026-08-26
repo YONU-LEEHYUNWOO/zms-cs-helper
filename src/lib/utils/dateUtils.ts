@@ -108,46 +108,41 @@ export function formatToInputDate(dateStr?: string): string {
 }
 
 /**
- * DB 저장용 KST ISO 타임스탬프 규격화 함수
- * 로컬 datetime 문자열("2026-08-28T17:30")을 KST 타임존 오프셋(+09:00) 포함 문자열로 규격화
- * Supabase DB Table Editor 대시보드 및 PostgreSQL 테이블에서 08:00 UTC로 찍히는 현상을 차단하고 17:30:00+09:00으로 저장되도록 보장
+ * DB 저장용 로컬 알림 시각 포맷터 (예: "2026-08-28 17:30")
+ * Supabase DB 테이블에 입력받은 시간 그대로(예: 17시 30분) 왜곡 없이 저장
  */
-export function normalizeToIsoString(dateStr?: string): string | null {
+export function formatToDbReminderDateTime(dateStr?: string): string | null {
   if (!dateStr || !dateStr.trim()) return null;
   const str = dateStr.trim();
 
-  // 이미 +09:00 또는 Z 타임존 오프셋이 명시된 경우 그대로 반환
-  if (str.includes('+') || (str.endsWith('Z') && str.length > 20)) {
+  // 이미 YYYY-MM-DD HH:mm 또는 YYYY-MM-DD HH:mm:ss 형태면 그대로 반환
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(str)) {
     return str;
+  }
+  // YYYY-MM-DDTHH:mm 형태면 'T' -> ' ' 변환
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+    return str.replace('T', ' ');
   }
 
   try {
-    const formatted = str.replace(' ', 'T');
-    // "2026-08-28T17:30" (시:분) -> "2026-08-28T17:30:00+09:00"
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(formatted)) {
-      return `${formatted}:00+09:00`;
-    }
-    // "2026-08-28T17:30:00" -> "2026-08-28T17:30:00+09:00"
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(formatted)) {
-      return `${formatted}+09:00`;
-    }
-    // "2026-08-28" (날짜 전용)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      return str;
-    }
-
-    const d = new Date(formatted);
+    const d = new Date(str);
     if (isNaN(d.getTime())) return str;
-    
-    // 로컬 시간 기준으로 YYYY-MM-DDTHH:mm:ss+09:00 구성
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const hh = String(d.getHours()).padStart(2, '0');
     const min = String(d.getMinutes()).padStart(2, '0');
-    const sec = String(d.getSeconds()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}+09:00`;
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
   } catch {
     return str;
   }
+}
+
+/**
+ * DB 저장용 ISO 타임스탬프 규격화 함수
+ */
+export function normalizeToIsoString(dateStr?: string): string | null {
+  if (!dateStr || !dateStr.trim()) return null;
+  const str = dateStr.trim();
+  return str;
 }

@@ -160,10 +160,9 @@ ZMS_CS_HELPER/
   - Supabase `agent_tasks.history` JSONB 컬럼 연동.
   - 이관/전달 시 연쇄 이력 타임라인(`is_completed` 무관)을 100% 보관 및 시각적 타임라인 배지로 표출.
 
-### 4.5 ⏰ KST 타임존 (+09:00) 규격화 & 마감/알림 날짜 완벽 분리 (`dateUtils.ts` & `DbViewerTab.tsx`)
-* **KST 타임존 (+09:00) 규격화 저장**:
-  - `reminder_datetime`을 Supabase DB에 저장할 때 단순 `.toISOString()`(UTC 08:00 시프트) 대신 KST 타임존 오프셋(`+09:00`, 예: `2026-08-28T17:00:00+09:00`)을 붙여 규격화(`normalizeToIsoString`).
-  - Supabase DB 대시보드 테이블 에디터 상에 08시로 왜곡되어 찍히는 현상을 원천 차단하고 원래 설정 시각(17시)이 100% 명확히 저장 및 표출되도록 보장.
+### 4.5 ⏰ 로컬 알림 시각 DB 저장 & 마감/알림 날짜 완벽 분리 (`dateUtils.ts` & `DbViewerTab.tsx`)
+* **로컬 시각 규격화 저장 (`reminder_datetime`)**:
+  - `reminder_datetime`을 Supabase DB `agent_tasks` 테이블에 저장할 때, 로컬 시각 포맷(`YYYY-MM-DD HH:mm`)으로 왜곡 없이 명확하게 저장 및 표출되도록 보장.
 * **마감일자(due_date) & 알림일시(reminder_datetime) 완전 분리 및 어드민 DB 동기화**:
   - `TaskCreateModal` 모달에서 `<input type="date">`(마감일자)와 `<input type="datetime-local">`(알림일시)를 독립 분리하여 입력 및 수정 시/분 리셋 버그 완전 차단.
   - 어드민 패널 `DbViewerTab`의 `AgentTasks Table`에 `due_date`(마감 일자)와 `reminder_datetime`(알림 일시) 컬럼을 분리 동기화 표출 및 CSV 엑셀 추출 지원.
