@@ -361,6 +361,10 @@ async function startServer() {
                 if (keyMatch && keyMatch[1]) keyIssues = keyMatch[1];
                 if (sentMatch && sentMatch[1]) sentiment = sentMatch[1];
 
+                summaries = summaries
+                  .map(s => s.replace(/\*\*/g, '').replace(/^(?:[•\*\-]|[\d]+\.|\b\d+\b)+\s*/, '').trim())
+                  .filter(s => s && !/^(?:\d+\)\s*)?(?:요약|핵심이슈|감정|STT)/i.test(s) && !/^\d+$/.test(s));
+
                 console.log(`[CTI Gemini 파싱 복구 성공] ✅ 정규식 필드 추출 완료 (STT: ${sttScript.length}자, 요약: ${summaries.length}개)`);
                 logs.push(`✅ [Gemini AI 오디오 분석] 정규식 필드 파싱 성공`);
               }

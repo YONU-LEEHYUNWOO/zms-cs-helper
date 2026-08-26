@@ -277,18 +277,25 @@ async function handleCtiRequest(req: any, res: any) {
                 contents: [
                   { inlineData: { mimeType: audioMimeType, data: base64Audio } },
                   `당신은 ZMS CS 주차 관리 센터의 최고 수석 AI 상담원 분석관입니다.
-오디오를 청취하고 전체 통화 내용의 흐름을 보기 좋게 4줄로 자연스럽게 요약하고 STT 대화록을 추출해 주세요:
+오디오를 청취하여 전체 통화 내용의 핵심을 정확히 4줄 스토리로 요약하고 STT 대화록을 추출해 주세요.
 
-1) 요약 (전체 통화의 사건 흐름을 보기 좋게 정확히 4줄로 개조식 요약):
-• 1. (고객 문의 및 유선 접속 원인 1줄)
-• 2. (상담원 확인 및 시스템 조회 내용 1줄)
-• 3. (안내 및 현장 조치 내용 1줄)
-• 4. (최종 처리 결과 및 통화 종료 상태 1줄)
+출력은 반드시 다음 4가지 섹션을 명확히 구분하여 작성해 주세요 (마크다운 특수문자 ** 나 * 또는 1), 2) 숫자 헤더는 절대 사용하지 마세요):
 
-2) 핵심이슈: (3-5단어 키워드)
-3) 감정: (긍정/중립/부정/화남 중 하나)
-4) STT대화록:
-([시간/화자] 형태 전체 대화록)`,
+---SUMMARY---
+고객 문의 원인: (고객 문의 및 유선 접속 원인 1줄)
+상담원 확인 내용: (상담원 확인 및 시스템 조회 내용 1줄)
+안내 및 조치 내용: (안내 및 현장 조치 내용 1줄)
+최종 처리 결과: (최종 처리 결과 및 통화 종료 상태 1줄)
+
+---KEY_ISSUES---
+(3~5개 주요 키워드)
+
+---SENTIMENT---
+(긍정 / 중립 / 부정 중 선택)
+
+---TRANSCRIPT---
+([00:05] 상담사: ...
+[00:10] 고객: ...)`,
                 ],
               });
 
@@ -300,8 +307,8 @@ async function handleCtiRequest(req: any, res: any) {
               if (aiRes && aiRes.text) {
                 const fullText = aiRes.text;
 
-                // STT 대화록 구분선 찾기 (4) STT대화록 또는 STT 대화록 또는 ---TRANSCRIPT--- 등)
-                const sttMarkerRegex = /(?:4\)\s*STT\s*대화록|STT\s*대화록|---TRANSCRIPT---|대화록\s*:?)/i;
+                // STT 대화록 구분선 찾기
+                const sttMarkerRegex = /(?:---TRANSCRIPT---|4\)\s*STT\s*대화록|STT\s*대화록|대화록\s*:?)/i;
                 const match = fullText.match(sttMarkerRegex);
 
                 let summaryPart = fullText;
@@ -309,32 +316,31 @@ async function handleCtiRequest(req: any, res: any) {
 
                 if (match && match.index !== undefined && match.index > 10) {
                   summaryPart = fullText.slice(0, match.index).trim();
-                  scriptPart = fullText.slice(match.index).trim();
+                  scriptPart = fullText.slice(match.index + match[0].length).trim();
                 }
 
                 // 핵심 이슈 키워드 추출
-                const issueMatch = fullText.match(/(?:2\)\s*핵심이슈|핵심이슈)\s*:?\s*([^\n]+)/i);
+                const issueMatch = fullText.match(/(?:---KEY_ISSUES---|2\)\s*핵심이슈|핵심이슈)\s*:?\s*([^\n\---]+)/i);
                 if (issueMatch && issueMatch[1]) {
-                  keyIssues = issueMatch[1].trim();
+                  keyIssues = issueMatch[1].replace(/[\*\#]/g, '').trim();
                 }
 
                 // 감정 추출
-                const sentimentMatch = fullText.match(/(?:3\)\s*감정|감정)\s*:?\s*([^\n]+)/i);
+                const sentimentMatch = fullText.match(/(?:---SENTIMENT---|3\)\s*감정|감정)\s*:?\s*([^\n\---]+)/i);
                 if (sentimentMatch && sentimentMatch[1]) {
-                  sentiment = sentimentMatch[1].trim();
+                  sentiment = sentimentMatch[1].replace(/[\*\#]/g, '').trim();
                 }
 
-                // summaries 배열에 순수 AI 요약문 할당 (메타데이터 덮어쓰기 완료)
-                const parsedLines = summaryPart
-                  .split('\n')
-                  .map(l => l.trim())
-                  .filter(l => l.length > 0);
-
+                // summaries 정제
+                const parsedLines = cleanAndFilterSummaryLines(summaryPart);
                 if (parsedLines.length > 0) {
                   summaries = parsedLines;
                 }
 
-                sttScript = scriptPart;
+                sttScript = scriptPart
+                  .replace(/^(?:---TRANSCRIPT---|4\)\s*STT\s*대화록|STT\s*대화록|대화록\s*:?)\s*/i, '')
+                  .trim();
+
                 logs.push(`✅ [Gemini AI 오디오 분석 성공] 모델: ${m}`);
                 break;
               }
@@ -364,7 +370,7 @@ async function handleCtiRequest(req: any, res: any) {
       }
     }
 
-    const formattedReport = summaries.join('\n');
+    const formattedReport = summaries.map((s, i) => `${i + 1}. ${s}`).join('\n');
 
     return res.json({
       success: true,
@@ -388,3 +394,57 @@ async function handleCtiRequest(req: any, res: any) {
     });
   }
 }
+
+/**
+ * CTI Gemini 요약 텍스트 정제 및 마크다운 찌꺼기 제거 전용 유틸리티
+ */
+function cleanAndFilterSummaryLines(rawSummaryPart: string): string[] {
+  if (!rawSummaryPart) return [];
+
+  // Cut off key issues, sentiment, transcript section if included
+  let summaryOnly = rawSummaryPart;
+  const cutIdx = rawSummaryPart.search(/(?:---KEY_ISSUES---|---SENTIMENT---|---TRANSCRIPT---|2\)\s*핵심이슈|3\)\s*감정|4\)\s*STT|핵심이슈|감정)/i);
+  if (cutIdx > 0) {
+    summaryOnly = rawSummaryPart.slice(0, cutIdx);
+  }
+
+  const lines = summaryOnly.split('\n');
+  const cleaned: string[] = [];
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Filter out section title markers like "1) 요약", "**1) 요약**", "---SUMMARY---"
+    if (/^(?:\*|\#)*\s*(?:\d+\)\s*)?(?:요약|핵심이슈|감정|STT대화록|---SUMMARY---|---TRANSCRIPT---|---KEY_ISSUES---|---SENTIMENT---)/i.test(trimmed)) {
+      continue;
+    }
+    // Filter out standalone line numbers like "2", "3", "4", "5"
+    if (/^\d+$/.test(trimmed)) {
+      continue;
+    }
+    // Filter out lines that are just markdown syntax symbols
+    if (/^[\*\#\-•\s]+$/.test(trimmed)) {
+      continue;
+    }
+
+    // Strip leading bullet markers ("•", "*", "-", "1.", "• 1.", etc.)
+    trimmed = trimmed.replace(/^(?:[•\*\-]|[\d]+\.|\b\d+\b)+\s*/, '').trim();
+    trimmed = trimmed.replace(/^(?:[•\*\-]|[\d]+\.)+\s*/, '').trim();
+
+    // Clean raw markdown bold syntax `**`
+    trimmed = trimmed.replace(/\*\*/g, '').trim();
+
+    // Ignore if it starts with "핵심이슈:" or "감정:"
+    if (/^(?:핵심이슈|감정)\s*[:：]/i.test(trimmed)) {
+      continue;
+    }
+
+    if (trimmed.length > 0 && !cleaned.includes(trimmed)) {
+      cleaned.push(trimmed);
+    }
+  }
+
+  return cleaned;
+}
+

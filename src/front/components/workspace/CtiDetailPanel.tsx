@@ -278,22 +278,48 @@ export const CtiDetailPanel: React.FC<CtiDetailPanelProps> = ({
                   <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 flex items-center justify-between">
                     <span className="text-sm font-bold text-indigo-950 flex items-center gap-1.5">
                       <Sparkles className="w-4.5 h-4.5 text-indigo-600" />
-                      <span>💡 통화 핵심 요약 (3~5줄)</span>
+                      <span>💡 통화 핵심 요약 (4단계 스토리)</span>
                     </span>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
                       감정: {audioAnalysisResult.sentiment || '중립'}
                     </span>
                   </div>
 
                   <div className="p-4 flex flex-col gap-3 bg-slate-50/50 max-h-[42vh] overflow-y-auto custom-scroll">
-                    {audioAnalysisResult.summaries.map((s, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 text-sm md:text-[15px] text-slate-800 leading-relaxed font-semibold">
-                        <span className="w-5.5 h-5.5 rounded-full bg-indigo-100 text-indigo-700 font-black text-xs shrink-0 flex items-center justify-center mt-0.5">
-                          {idx + 1}
-                        </span>
-                        <span className="flex-1 font-sans">{s}</span>
-                      </div>
-                    ))}
+                    {audioAnalysisResult.summaries.map((rawLine, idx) => {
+                      let s = rawLine.replace(/\*\*/g, '').replace(/^(?:[•\*\-]|[\d]+\.|\b\d+\b)+\s*/, '').trim();
+                      if (!s || /^(?:\d+\)\s*)?(?:요약|핵심이슈|감정|STT)/i.test(s) || /^\d+$/.test(s)) return null;
+
+                      const colonIdx = s.indexOf(':');
+                      let label = '';
+                      let content = s;
+                      if (colonIdx > 0 && colonIdx < 40) {
+                        label = s.slice(0, colonIdx).trim();
+                        content = s.slice(colonIdx + 1).trim();
+                      }
+
+                      return (
+                        <div key={idx} className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col gap-1.5 transition-all hover:border-indigo-200">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-black text-[11px] shrink-0 flex items-center justify-center shadow-2xs">
+                              {idx + 1}
+                            </span>
+                            {label ? (
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-900 border border-indigo-200 text-xs font-bold font-sans">
+                                {label}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">
+                                주요 요약
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm md:text-[15px] text-slate-800 leading-relaxed font-medium pl-7 select-text">
+                            {content}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -324,6 +350,8 @@ export const CtiDetailPanel: React.FC<CtiDetailPanelProps> = ({
                     {audioAnalysisResult.sttScript.split('\n').map((line, idx) => {
                       const trimmed = line.trim();
                       if (!trimmed) return null;
+                      if (/^(?:4\)\s*STT\s*대화록|STT\s*대화록|---TRANSCRIPT---|대화록\s*:?)/i.test(trimmed)) return null;
+
                       const isAgent = trimmed.includes('상담사') || trimmed.includes('상담원');
                       const isCustomer = trimmed.includes('고객') || trimmed.includes('고객님');
                       const timeMatch = trimmed.match(/^[\[\s]*([0-9]{1,2}:[0-9]{2})[\]\s]*/);

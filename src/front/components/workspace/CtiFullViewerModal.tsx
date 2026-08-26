@@ -155,20 +155,47 @@ export const CtiFullViewerModal: React.FC<CtiFullViewerModalProps> = ({
                 </button>
               </div>
 
-              {audioAnalysisResult.summaries.map((line, idx) => (
-                <div key={idx} className="p-4.5 bg-white border border-slate-200 rounded-2xl shadow-xs flex items-start gap-3.5 text-base md:text-lg text-slate-800 leading-relaxed font-semibold">
-                  <span className="w-7 h-7 rounded-full bg-indigo-600 text-white font-black text-xs shrink-0 flex items-center justify-center mt-0.5 shadow-2xs">
-                    {idx + 1}
-                  </span>
-                  <span className="flex-1 font-sans select-text">{line}</span>
-                </div>
-              ))}
+              {audioAnalysisResult.summaries.map((rawLine, idx) => {
+                let s = rawLine.replace(/\*\*/g, '').replace(/^(?:[•\*\-]|[\d]+\.|\b\d+\b)+\s*/, '').trim();
+                if (!s || /^(?:\d+\)\s*)?(?:요약|핵심이슈|감정|STT)/i.test(s) || /^\d+$/.test(s)) return null;
+
+                const colonIdx = s.indexOf(':');
+                let label = '';
+                let content = s;
+                if (colonIdx > 0 && colonIdx < 40) {
+                  label = s.slice(0, colonIdx).trim();
+                  content = s.slice(colonIdx + 1).trim();
+                }
+
+                return (
+                  <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col gap-2 transition-all hover:border-indigo-200">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-indigo-600 text-white font-black text-xs shrink-0 flex items-center justify-center shadow-2xs">
+                        {idx + 1}
+                      </span>
+                      {label ? (
+                        <span className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 text-xs font-bold font-sans">
+                          {label}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">
+                          주요 요약
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-base md:text-lg text-slate-800 leading-relaxed font-medium pl-9 select-text">
+                      {content}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col gap-3 max-w-4xl mx-auto">
               {audioAnalysisResult.sttScript.split('\n').map((line, idx) => {
                 const trimmed = line.trim();
                 if (!trimmed) return null;
+                if (/^(?:4\)\s*STT\s*대화록|STT\s*대화록|---TRANSCRIPT---|대화록\s*:?)/i.test(trimmed)) return null;
 
                 if (searchKeyword && !trimmed.toLowerCase().includes(searchKeyword.toLowerCase())) {
                   return null;
