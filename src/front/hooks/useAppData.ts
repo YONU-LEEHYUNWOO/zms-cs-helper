@@ -13,6 +13,7 @@ import {
 } from '../../backend/types';
 import { customerRepository } from '../../backend/repositories/CustomerRepositoryImpl';
 import { consultationRepository } from '../../backend/repositories/ConsultationRepositoryImpl';
+import { agentTaskRepository } from '../../backend/repositories/AgentTaskRepositoryImpl';
 import { consultationDomainService } from '../../backend/services/consultation/consultationService';
 
 import { INITIAL_PARKING_SPOTS } from '../../lib/constants';
@@ -92,103 +93,9 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     }
   }, [currentAgent]);
 
-  const formatDbTaskPayload = (t: AgentTask) => ({
-    id: t.id,
-    consultation_id: t.consultation_id || null,
-    agent_name: t.agent_name,
-    created_by: t.created_by || t.agent_name,
-    task_title: t.task_title,
-    tag: t.tag || '개인메모',
-    due_date: t.due_date ? new Date(t.due_date).toISOString() : null,
-    is_completed: t.is_completed ?? false,
-    created_at: t.created_at || new Date().toISOString(),
-  });
-
-  const saveTaskToSupabase = async (task: AgentTask) => {
-    if (!isSupabaseConfigured() || !supabase) return;
-    const payload = formatDbTaskPayload(task);
-    const { error } = await supabase.from('agent_tasks').upsert([payload]);
-    if (error) {
-      console.warn('[saveTaskToSupabase] 1차 upsert 경고:', error.message);
-      // DB 스키마에 created_by / tag 컬럼이 누락된 경우 기본 컬럼만으로 2차 fallback upsert
-      const fallbackPayload = {
-        id: payload.id,
-        consultation_id: payload.consultation_id,
-        agent_name: payload.agent_name,
-        task_title: payload.task_title,
-        due_date: payload.due_date,
-        is_completed: payload.is_completed,
-        created_at: payload.created_at,
-      };
-      const { error: err2 } = await supabase.from('agent_tasks').upsert([fallbackPayload]);
-      if (err2) {
-        console.error('[saveTaskToSupabase] 2차 fallback upsert 실패:', err2.message);
-      } else {
-        console.log('[saveTaskToSupabase] 2차 fallback upsert 성공');
-      }
-    } else {
-      console.log('[saveTaskToSupabase] Supabase DB 저장 성공:', task.task_title);
-    }
-  };
-
-  const fetchTasks = useCallback(() => {
-    if (isSupabaseConfigured() && supabase) {
-      // Supabase DB에서 전체 TODO 태스크를 실 데이터 기준으로 가져옴
-      supabase
-        .from('agent_tasks')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .then(async ({ data, error }) => {
-          if (error) {
-            console.error('[fetchTasks] Supabase 조회 오류:', error.message);
-            const cachedRaw = localStorage.getItem('local_agent_tasks');
-            if (cachedRaw) {
-              try { setTasks(JSON.parse(cachedRaw)); } catch (e) {}
-            }
-            return;
-          }
-
-          const cachedRaw = localStorage.getItem('local_agent_tasks');
-          let localTasks: AgentTask[] = [];
-          if (cachedRaw) {
-            try { localTasks = JSON.parse(cachedRaw); } catch (e) {}
-          }
-
-          const fetchedTasks = (data as AgentTask[]) || [];
-
-          // 💡 DB 결과와 로컬스토리지 결과 병합 (ID 기준)
-          // 로컬스토리지에는 존재하지만 DB에는 아직 업로드되지 않은 태스크가 있다면 Supabase DB로 동기화 업로드
-          const dbTaskIds = new Set(fetchedTasks.map(t => t.id));
-          const unsyncedLocalTasks = localTasks.filter(t => !dbTaskIds.has(t.id));
-
-          if (unsyncedLocalTasks.length > 0) {
-            console.log(`[fetchTasks] 미동기화 로컬 TODO ${unsyncedLocalTasks.length}건 → Supabase DB 자동 동기화 시작`);
-            for (const unsyncedTask of unsyncedLocalTasks) {
-              await saveTaskToSupabase(unsyncedTask);
-            }
-          }
-
-          const combinedMap = new Map<string, AgentTask>();
-          fetchedTasks.forEach(t => combinedMap.set(t.id, t));
-          unsyncedLocalTasks.forEach(t => combinedMap.set(t.id, t));
-
-          const finalCombinedTasks = Array.from(combinedMap.values()).sort(
-            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-          );
-
-          setTasks(finalCombinedTasks);
-          localStorage.setItem('local_agent_tasks', JSON.stringify(finalCombinedTasks));
-        });
-    } else {
-      const cachedTasks = localStorage.getItem('local_agent_tasks');
-      if (cachedTasks) {
-        try {
-          setTasks(JSON.parse(cachedTasks));
-        } catch (e) {
-          console.error('로컬 Tasks 로드 에러:', e);
-        }
-      }
-    }
+  const fetchTasks = useCallback(async () => {
+    const latestTasks = await agentTaskRepository.getAllTasks();
+    setTasks(latestTasks);
   }, []);
 
   const fetchCustomers = useCallback(() => {
@@ -203,22 +110,19 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     fetchCustomers();
 
     let agentChannel: any = null;
-    let taskChannel: any = null;
     let customerChannel: any = null;
     let lockChannel: any = null;
+    let unsubscribeTasks: (() => void) | null = null;
+
+    unsubscribeTasks = agentTaskRepository.subscribeRealtime((latestTasks) => {
+      setTasks(latestTasks);
+    });
 
     if (isSupabaseConfigured() && supabase) {
       agentChannel = supabase
         .channel('public:internal_agents_sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_agents' }, () => {
           fetchAgents();
-        })
-        .subscribe();
-
-      taskChannel = supabase
-        .channel('public:agent_tasks_sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_tasks' }, () => {
-          fetchTasks();
         })
         .subscribe();
 
@@ -251,8 +155,8 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     }
 
     return () => {
+      if (unsubscribeTasks) unsubscribeTasks();
       if (agentChannel && supabase) supabase.removeChannel(agentChannel);
-      if (taskChannel && supabase) supabase.removeChannel(taskChannel);
       if (customerChannel && supabase) supabase.removeChannel(customerChannel);
       if (lockChannel && supabase) supabase.removeChannel(lockChannel);
     };
@@ -603,7 +507,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     }
   };
 
-  const handleAddTask = (
+  const handleAddTask = async (
     input: string | { task_title: string; agent_name?: string; tag?: '개인메모' | '리마인더' | '고객조치요망' | '결제환불확인' | '업무이관'; due_date?: string; consultation_id?: string },
     dueDateParam?: string
   ) => {
@@ -634,60 +538,34 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
       };
     }
 
-    saveTaskToSupabase(newTask);
-
-    setTasks((prev) => {
-      const updated = [newTask, ...prev];
-      localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
-      return updated;
-    });
+    await agentTaskRepository.saveTask(newTask);
+    const latestTasks = await agentTaskRepository.getAllTasks();
+    setTasks(latestTasks);
   };
 
-  const handleToggleTask = (taskId: string) => {
+  const handleToggleTask = async (taskId: string) => {
     const target = tasks.find((t) => t.id === taskId);
     if (target) {
       const updated = { ...target, is_completed: !target.is_completed };
-      saveTaskToSupabase(updated);
+      await agentTaskRepository.saveTask(updated);
+      const latestTasks = await agentTaskRepository.getAllTasks();
+      setTasks(latestTasks);
     }
-
-    setTasks((prev) => {
-      const updated = prev.map((t) => (t.id === taskId ? { ...t, is_completed: !t.is_completed } : t));
-      localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
-      return updated;
-    });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    if (isSupabaseConfigured() && supabase) {
-      supabase.from('agent_tasks').delete().eq('id', taskId).then(({ error }) => {
-        if (error) console.error('[handleDeleteTask] Supabase 삭제 오류:', error.message);
-      });
-    }
-
-    setTasks((prev) => {
-      const updated = prev.filter((t) => t.id !== taskId);
-      localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
-      return updated;
-    });
+  const handleDeleteTask = async (taskId: string) => {
+    await agentTaskRepository.deleteTask(taskId);
+    const latestTasks = await agentTaskRepository.getAllTasks();
+    setTasks(latestTasks);
   };
 
-  const handleReassignTask = (taskId: string, newAgentName: string) => {
-    const target = tasks.find((t) => t.id === taskId);
-    if (target) {
-      const updated = { ...target, agent_name: newAgentName };
-      saveTaskToSupabase(updated);
-    }
-
-    setTasks((prev) => {
-      const updated = prev.map((t) =>
-        t.id === taskId ? { ...t, agent_name: newAgentName } : t
-      );
-      localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
-      return updated;
-    });
+  const handleReassignTask = async (taskId: string, newAgentName: string) => {
+    await agentTaskRepository.reassignTask(taskId, newAgentName);
+    const latestTasks = await agentTaskRepository.getAllTasks();
+    setTasks(latestTasks);
   };
 
-  const handleEditTask = (
+  const handleEditTask = async (
     taskId: string,
     updatedInput: {
       task_title: string;
@@ -705,34 +583,17 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
         tag: updatedInput.tag || target.tag,
         due_date: updatedInput.due_date || undefined,
       };
-      saveTaskToSupabase(updated);
+      await agentTaskRepository.saveTask(updated);
+      const latestTasks = await agentTaskRepository.getAllTasks();
+      setTasks(latestTasks);
     }
-
-    setTasks((prev) => {
-      const updated = prev.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              task_title: updatedInput.task_title,
-              agent_name: updatedInput.agent_name || t.agent_name,
-              tag: updatedInput.tag || t.tag,
-              due_date: updatedInput.due_date || undefined,
-            }
-          : t
-      );
-      localStorage.setItem('local_agent_tasks', JSON.stringify(updated));
-      return updated;
-    });
   };
 
   const handleTakeoverConsultation = async (consId: string) => {
     await consultationDomainService.takeoverConsultationToCurrentAgent(consId, currentAgentName);
-    if (isSupabaseConfigured() && supabase) {
-      await supabase.from('agent_tasks').update({ agent_name: currentAgentName }).eq('consultation_id', consId);
-    }
-    setTasks((prev) =>
-      prev.map((t) => (t.consultation_id === consId ? { ...t, agent_name: currentAgentName } : t))
-    );
+    await agentTaskRepository.reassignTasksByConsultationId(consId, currentAgentName);
+    const latestTasks = await agentTaskRepository.getAllTasks();
+    setTasks(latestTasks);
     setSelectedConsultationId(consId);
   };
 
