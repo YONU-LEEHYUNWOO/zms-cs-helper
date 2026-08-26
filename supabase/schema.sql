@@ -83,11 +83,18 @@ CREATE TABLE IF NOT EXISTS agent_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     consultation_id UUID REFERENCES consultations(id) ON DELETE CASCADE,
     agent_name VARCHAR(50) NOT NULL,         -- 담당 상담원
+    created_by VARCHAR(50),                  -- 작성한 상담원
     task_title TEXT NOT NULL,                -- 할 일 내용
-    due_date TIMESTAMPTZ NOT NULL,           -- 약속 마감 시각
+    tag VARCHAR(50) DEFAULT '개인메모',       -- 태그 ('개인메모', '리마인더', '고객조치요망', '결제환불확인', '업무이관')
+    due_date TIMESTAMPTZ,                    -- 약속 마감 시각 (선택 항목, NULL 허용)
     is_completed BOOLEAN DEFAULT FALSE,      -- 마감 완료 여부
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 기존 DB 스키마 보완 안전 마이그레이션 (컬럼 추가 및 제약조건 완화)
+ALTER TABLE agent_tasks ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);
+ALTER TABLE agent_tasks ADD COLUMN IF NOT EXISTS tag VARCHAR(50) DEFAULT '개인메모';
+ALTER TABLE agent_tasks ALTER COLUMN due_date DROP NOT NULL;
 
 -- 8. 3개월 이상 완료 데이터 아카이빙 백업 테이블 (consultations_archive)
 CREATE TABLE IF NOT EXISTS consultations_archive (
