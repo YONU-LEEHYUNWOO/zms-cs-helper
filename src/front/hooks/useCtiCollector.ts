@@ -409,15 +409,20 @@ export const useCtiCollector = ({
           );
           onClose();
         } else {
-          setAudioAnalysisResult({
+          const analysisObj = {
             summaries: data.summaries || [reportText],
             sttScript: data.sttScript || '',
             keyIssues: data.keyIssues || '',
             sentiment: data.sentiment || '',
             formattedReport: reportText,
             filename: filename,
-          });
-          setToastMessage('✅ 상세 STT 대화록 추출이 성공적으로 완료되었습니다! 아래 결과를 확인한 뒤 반영해 주세요.');
+          };
+          if (selectedRecordIdx) {
+            setCallAnalysisCache(prev => new Map(prev).set(selectedRecordIdx, analysisObj));
+          }
+          setAudioAnalysisResult(analysisObj);
+          setActiveResultTab('summary');
+          setToastMessage('✅ 상세 STT 대화록 추출이 성공적으로 완료되었습니다! 우측 패널에서 결과를 확인하세요.');
         }
       } else {
         const failMsg = data.message || '선택한 녹취 분석에 실패했습니다.';
