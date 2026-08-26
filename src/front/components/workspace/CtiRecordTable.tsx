@@ -103,7 +103,7 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
               type="text"
               value={phoneInput}
               onChange={(e) => setPhoneInput(e.target.value)}
-              placeholder="예: 010-9664-6406"
+              placeholder="예: 010-0000-0000"
               className="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
             />
           </div>

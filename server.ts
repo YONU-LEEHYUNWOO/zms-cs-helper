@@ -211,7 +211,7 @@ async function startServer() {
           try {
             const textPrompt = `당신은 주차 CS 센터 통화 기록 요약봇입니다.
 다음 통화 기록 메타데이터를 기반으로, 상담사가 한눈에 파악할 수 있도록 1~2문장의 가독성 높은 한국어 글로 요약해 주세요.
-예: "2026-08-14 11:36에 상담원(7998)이 고객(010-4119-6931)에게 발신하여 42초 동안 정상적으로 통화(통화성공)를 완료했습니다."
+예: "2026-08-14 11:36에 상담원(7998)이 고객(010-0000-0000)에게 발신하여 42초 동안 정상적으로 통화(통화성공)를 완료했습니다."
 
 - 통화일시: ${targetRecord.callDateStr}
 - 발신 고객: ${phoneDisplay}
@@ -255,39 +255,58 @@ async function startServer() {
         } else if (audioBuffer) {
           // 2) 전체 오디오 멀티모달 분석 모드 (Gemini 3.5/3.6/2.0 JSON 스키마 적용)
           try {
-            const base64Audio = audioBuffer.toString('base64');
-            const isWav = targetRecord.filename?.endsWith('.wav');
-            const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
+            const durationSec = parseDurationSeconds(targetRecord.durationStr);
 
-            console.log(`[CTI Gemini] 🤖 멀티모달 오디오 AI 분석 시작 (오디오 크기: ${audioBuffer.length} bytes, MIME: ${audioMimeType})`);
-            logs.push(`[Gemini AI 멀티모달 오디오 분석 시작] 크기: ${audioBuffer.length} bytes`);
+            // 🚨 1~3초 이내 단기/즉시끊김 통화인 경우 AI 할루시네이션 완벽 차단
+            if (durationSec > 0 && durationSec <= 3) {
+              summaries = [
+                "고객 문의 원인: 1~3초 이내에 통화가 연결 직후 종료되어 음성 문의 내역이 없습니다.",
+                "상담원 확인 내용: 단기 접속 및 조기 종료 통화로 감지되었습니다.",
+                "안내 및 조치 내용: 통화 연결 직후 끊김으로 추가 조치 내역이 없습니다.",
+                "최종 처리 결과: 통화 종료"
+              ];
+              keyIssues = "단기 종료 통화";
+              sentiment = "중립";
+              sttScript = "[음성 대화 없음]\n1~3초 이내에 연결이 바로 종료된 통화로 음성 대화 스크립트가 존재하지 않습니다.";
+              logs.push(`ℹ️ [단기 통화 감지] 통화시간 ${targetRecord.durationStr} (${durationSec}초) <= 3초 ➔ AI 가짜 대화 생성 차단 및 단기 종료 안내 처리 완료`);
+            } else {
+              const base64Audio = audioBuffer.toString('base64');
+              const isWav = targetRecord.filename?.endsWith('.wav');
+              const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
 
-            const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-            let aiResult: any = null;
+              console.log(`[CTI Gemini] 🤖 멀티모달 오디오 AI 분석 시작 (오디오 크기: ${audioBuffer.length} bytes, MIME: ${audioMimeType})`);
+              logs.push(`[Gemini AI 멀티모달 오디오 분석 시작] 크기: ${audioBuffer.length} bytes`);
 
-            for (const m of modelCandidates) {
-              try {
-                console.log(`[CTI Gemini] ⏳ 모델 (${m}) 요청 전송 중...`);
-                logs.push(`[Gemini AI 오디오 분석 시도] 모델: ${m}`);
-                const geminiPromise = ai.models.generateContent({
-                  model: m,
-                  contents: [
-                    {
-                      inlineData: {
-                        mimeType: audioMimeType,
-                        data: base64Audio,
+              const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+              let aiResult: any = null;
+
+              for (const m of modelCandidates) {
+                try {
+                  console.log(`[CTI Gemini] ⏳ 모델 (${m}) 요청 전송 중...`);
+                  logs.push(`[Gemini AI 오디오 분석 시도] 모델: ${m}`);
+                  const geminiPromise = ai.models.generateContent({
+                    model: m,
+                    contents: [
+                      {
+                        inlineData: {
+                          mimeType: audioMimeType,
+                          data: base64Audio,
+                        },
                       },
-                    },
-                    {
-                      text: `당신은 주차 CS 센터 CTI 녹취 오디오 처리 AI 어시스턴트입니다.
-제공된 오디오를 듣고 다음 구조의 JSON 객체 형식으로 한국어로 작성해 주세요:
+                      {
+                        text: `당신은 주차 CS 센터 CTI 녹취 오디오 처리 AI 어시스턴트입니다.
+제공된 오디오를 듣고 다음 구조의 JSON 객체 형식으로 한국어로 작성해 주세요.
+
+🚨 [중요 할루시네이션 절대 방지 지침]
+만약 오디오가 무음이거나 1~3초 이내에 바로 끊긴 단기 통화여서 실제 대화가 없는 경우, 절대로 가짜 주차 문의(차단기 미개방, 12가 3456 등)를 허구로 지어내지 마시고 sttScript에 "[음성 대화 없음]"을 넣으세요.
+
 {
   "sttScript": "타임스탬프 [MM:SS] 형식을 앞에 붙인 상담사와 고객의 상세 대화 내용 대본 전체",
   "summaries": ["오디오 대화를 분석하여 도출한 상담 핵심 요약 문장 1", "오디오 대화를 분석하여 도출한 상담 핵심 요약 문장 2", "오디오 대화를 분석하여 도출한 상담 핵심 요약 문장 3"],
   "keyIssues": "상담사 또는 고객의 주요 문의 사항 및 처리 결과 한 문장 요약",
   "sentiment": "고객의 상담 감정 상태 (긍정 / 중립 / 부정 중 택1)"
 }`,
-                    },
+                      },
                   ],
                   config: {
                     responseMimeType: 'application/json',
@@ -371,6 +390,7 @@ async function startServer() {
             } else {
               console.warn(`[CTI Gemini 최종 경고] ⚠️ 모든 모델에서 응답을 받지 못하여 기본 템플릿 반환`);
               logs.push(`ℹ️ [Gemini AI 오디오 분석] 모델 응답 미수신으로 기본 템플릿 반환`);
+            }
             }
           } catch (aiErr: any) {
             console.error(`[CTI Gemini 최상위 예외]:`, aiErr);
@@ -526,6 +546,30 @@ ${text}`;
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
   });
+}
+
+function parseDurationSeconds(durationStr?: string): number {
+  if (!durationStr) return 0;
+  const clean = durationStr.trim();
+
+  if (clean.includes(':')) {
+    const parts = clean.split(':').map(p => parseInt(p, 10) || 0);
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+
+  let totalSec = 0;
+  const minMatch = clean.match(/(\d+)\s*분/);
+  if (minMatch) totalSec += parseInt(minMatch[1], 10) * 60;
+  const secMatch = clean.match(/(\d+)\s*초/);
+  if (secMatch) totalSec += parseInt(secMatch[1], 10);
+
+  if (!minMatch && !secMatch) {
+    const numOnly = parseInt(clean.replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numOnly)) totalSec = numOnly;
+  }
+
+  return totalSec;
 }
 
 startServer();

@@ -263,21 +263,51 @@ async function handleCtiRequest(req: any, res: any) {
         }
       } else if (audioBuffer) {
         try {
-          const base64Audio = audioBuffer.toString('base64');
-          const isWav = targetRecord.filename?.endsWith('.wav');
-          const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
+          const durationSec = parseDurationSeconds(targetRecord.durationStr);
 
-          const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'];
-          let isKeyBlocked = false;
-          for (const m of modelCandidates) {
-            try {
-              logs.push(`[Gemini AI 오디오 분석 시도] 모델: ${m}`);
-              const geminiPromise = ai.models.generateContent({
-                model: m,
-                contents: [
-                  { inlineData: { mimeType: audioMimeType, data: base64Audio } },
-                  `당신은 ZMS CS 주차 관리 센터의 최고 수석 AI 상담원 분석관입니다.
+          // 🚨 1~3초 이내 단기/즉시끊김 통화인 경우 AI 할루시네이션 완벽 차단
+          if (durationSec > 0 && durationSec <= 3) {
+            summaries = [
+              "고객 문의 원인: 1~3초 이내에 통화가 연결 직후 종료되어 음성 문의 내역이 없습니다.",
+              "상담원 확인 내용: 단기 접속 및 조기 종료 통화로 감지되었습니다.",
+              "안내 및 조치 내용: 통화 연결 직후 끊김으로 추가 조치 내역이 없습니다.",
+              "최종 처리 결과: 통화 종료"
+            ];
+            keyIssues = "단기 종료 통화";
+            sentiment = "중립";
+            sttScript = "[음성 대화 없음]\n1~3초 이내에 연결이 바로 종료된 통화로 음성 대화 스크립트가 존재하지 않습니다.";
+            logs.push(`ℹ️ [단기 통화 감지] 통화시간 ${targetRecord.durationStr} (${durationSec}초) <= 3초 ➔ AI 가짜 대화 생성 차단 및 단기 종료 안내 처리 완료`);
+          } else {
+            const base64Audio = audioBuffer.toString('base64');
+            const isWav = targetRecord.filename?.endsWith('.wav');
+            const audioMimeType = isWav ? 'audio/wav' : 'audio/mp3';
+
+            const modelCandidates = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'];
+            let isKeyBlocked = false;
+            for (const m of modelCandidates) {
+              try {
+                logs.push(`[Gemini AI 오디오 분석 시도] 모델: ${m}`);
+                const geminiPromise = ai.models.generateContent({
+                  model: m,
+                  contents: [
+                    { inlineData: { mimeType: audioMimeType, data: base64Audio } },
+                    `당신은 ZMS CS 주차 관리 센터의 최고 수석 AI 상담원 분석관입니다.
 오디오를 청취하여 전체 통화 내용의 핵심을 정확히 4줄 스토리로 요약하고 STT 대화록을 추출해 주세요.
+
+🚨 [중요 할루시네이션 절대 방지 지침]
+- 오디오에 실제 상담사와 고객 간의 유선 대화 내용이 명확히 포함되어 있는 경우에만 대화를 작성하세요.
+- 만약 오디오가 무음이거나 1~3초 이내에 바로 끊긴 단기 통화여서 대화 내용이 없는 경우, 절대로 가짜 주차 문의(차단기 미개방, 12가 3456 등)를 허구로 지어내지 마시고 반드시 다음과 같이 작성해 주세요:
+---SUMMARY---
+고객 문의 원인: 1~3초 이내에 연결이 바로 종료되어 음성 문의 내역 없음
+상담원 확인 내용: 조기 종료 통화 감지됨
+안내 및 조치 내용: 추가 조치 내역 없음
+최종 처리 결과: 통화 종료
+---KEY_ISSUES---
+단기 종료
+---SENTIMENT---
+중립
+---TRANSCRIPT---
+[음성 대화 없음]
 
 출력은 반드시 다음 4가지 섹션을 명확히 구분하여 작성해 주세요 (마크다운 특수문자 ** 나 * 또는 1), 2) 숫자 헤더는 절대 사용하지 마세요):
 
@@ -296,8 +326,8 @@ async function handleCtiRequest(req: any, res: any) {
 ---TRANSCRIPT---
 ([00:05] 상담사: ...
 [00:10] 고객: ...)`,
-                ],
-              });
+                  ],
+                });
 
               const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error(`Gemini ${m} 응답 시간 초과 (25초)`)), 25000)
@@ -364,13 +394,14 @@ async function handleCtiRequest(req: any, res: any) {
               logs,
             });
           }
-        } catch (audioErr: any) {
-          logs.push(`⚠️ [Gemini AI 오디오 분석 예외]: ${audioErr?.message || audioErr}`);
         }
+      } catch (audioErr: any) {
+        logs.push(`⚠️ [Gemini AI 오디오 분석 예외]: ${audioErr?.message || audioErr}`);
       }
     }
+  }
 
-    const formattedReport = summaries.map((s, i) => `${i + 1}. ${s}`).join('\n');
+  const formattedReport = summaries.map((s, i) => `${i + 1}. ${s}`).join('\n');
 
     return res.json({
       success: true,
@@ -447,4 +478,32 @@ function cleanAndFilterSummaryLines(rawSummaryPart: string): string[] {
 
   return cleaned;
 }
+
+/**
+ * CTI 통화시간 텍스트 (예: '1초', '27초', '01:43', '1분 43초')를 초(Second) 숫자로 변환 유틸
+ */
+function parseDurationSeconds(durationStr?: string): number {
+  if (!durationStr) return 0;
+  const clean = durationStr.trim();
+
+  if (clean.includes(':')) {
+    const parts = clean.split(':').map(p => parseInt(p, 10) || 0);
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+
+  let totalSec = 0;
+  const minMatch = clean.match(/(\d+)\s*분/);
+  if (minMatch) totalSec += parseInt(minMatch[1], 10) * 60;
+  const secMatch = clean.match(/(\d+)\s*초/);
+  if (secMatch) totalSec += parseInt(secMatch[1], 10);
+
+  if (!minMatch && !secMatch) {
+    const numOnly = parseInt(clean.replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numOnly)) totalSec = numOnly;
+  }
+
+  return totalSec;
+}
+
 

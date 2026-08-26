@@ -15,7 +15,7 @@ export interface CtiCallRecord {
   companyName?: string;     // 회사명 ('주차장만드는사람들 주식회사')
   memberPhone: string;      // 상담원 내선/전화 (예: '070-7931-7997')
   userName?: string;        // 이름 ('주차장만드는사람들')
-  guestPhone: string;       // 고객 전화 (예: '010-9664-6406')
+  guestPhone: string;       // 고객 전화 (예: '010-0000-0000')
   callDateStr: string;      // 통화일시 (예: '2026-08-14 16:44')
   callEndDateStr?: string;  // 통화종료일시 (예: '2026-08-14 16:45')
   callType: 'in' | 'out';   // 통화유형 ('in': 수신 | 'out': 발신)
