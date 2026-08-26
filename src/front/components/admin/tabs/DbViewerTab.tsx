@@ -5,6 +5,7 @@ import { consultationRepository } from '../../../../backend/repositories/Consult
 import { customerRepository } from '../../../../backend/repositories/CustomerRepositoryImpl';
 import { formatDateTime, getResolvedStatus, getSubStatusBadgeStyle, formatSubStatus } from '../../../../lib/utils/consultationArchive';
 import { maskTempCarNumber, maskTempPhoneNumber } from '../../../../lib/utils/normalize';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../../lib/utils/dateUtils';
 
 interface DbViewerTabProps {
   agents?: InternalAgent[];
@@ -408,7 +409,7 @@ export const DbViewerTab: React.FC<DbViewerTabProps> = ({
               AgentTasks Table (업무 & TODO 마스터 행/열 데이터 - 총 {displayTasks.length}행)
             </h4>
             <span className="text-[10px] text-slate-500 font-mono">
-              컬럼 수: 9개 | 행 수: {displayTasks.length}개
+              컬럼 수: 10개 | 행 수: {displayTasks.length}개
             </span>
           </div>
 
@@ -423,7 +424,8 @@ export const DbViewerTab: React.FC<DbViewerTabProps> = ({
                 <th className="p-3 font-bold text-blue-700">담당 상담사 (agent_name)</th>
                 <th className="p-3">업무 태그 (tag)</th>
                 <th className="p-3 font-bold text-slate-900">TODO 내용 (task_title)</th>
-                <th className="p-3 font-bold text-red-600">마감/알림 일시 (due_date)</th>
+                <th className="p-3 font-bold text-indigo-700">마감 일자 (due_date)</th>
+                <th className="p-3 font-bold text-red-600">알림 일시 (reminder_datetime)</th>
                 <th className="p-3 font-bold text-emerald-700">완료 상태 (is_completed)</th>
                 <th className="p-3">생성 일시 (created_at)</th>
                 <th className="p-3 text-center">작업 (DB 영구삭제)</th>
@@ -432,7 +434,7 @@ export const DbViewerTab: React.FC<DbViewerTabProps> = ({
             <tbody className="divide-y divide-slate-100">
               {displayTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-slate-400">
+                  <td colSpan={12} className="p-6 text-center text-slate-400">
                     {selectedAgentFilter ? `'${selectedAgentFilter}' 상담사의 저장된 업무/TODO DB 데이터가 없습니다.` : '저장된 업무/TODO DB 데이터가 없습니다.'}
                   </td>
                 </tr>
@@ -480,7 +482,8 @@ export const DbViewerTab: React.FC<DbViewerTabProps> = ({
                       ) : '-'}
                     </td>
                     <td className="p-3 font-bold text-slate-900 max-w-sm truncate">{t.task_title}</td>
-                    <td className="p-3 font-mono font-bold text-red-600 bg-red-50/30">{t.due_date ? t.due_date.replace('T', ' ') : '-'}</td>
+                    <td className="p-3 font-mono font-bold text-indigo-700 bg-indigo-50/30">{t.due_date ? formatDisplayDate(t.due_date) : '-'}</td>
+                    <td className="p-3 font-mono font-bold text-red-600 bg-red-50/30">{t.reminder_datetime ? formatDisplayDateTime(t.reminder_datetime) : '-'}</td>
                     <td className="p-3">
                       {t.is_completed ? (
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-bold border border-emerald-300">

@@ -14,6 +14,7 @@ import { Shield, Users, MessageSquare, UserPlus, Database, CheckCircle } from 'l
 import { InternalAgent, SavedTemplate, Customer, Consultation, AgentTask } from '../../../backend/types';
 import { consultationRepository } from '../../../backend/repositories/ConsultationRepositoryImpl';
 import { getResolvedStatus } from '../../../lib/utils/consultationArchive';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../lib/utils/dateUtils';
 
 import { DbViewerTab } from './tabs/DbViewerTab';
 import { AgentManagerTab } from './tabs/AgentManagerTab';
@@ -196,12 +197,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     const headers = [
       'TaskID', '연관상담ID', '작성자계정(created_by)', '담당상담사(agent_name)',
-      '업무분류태그(tag)', 'TODO내용(task_title)', '마감일시(due_date)', '완료여부(is_completed)', '등록일(created_at)'
+      '업무분류태그(tag)', 'TODO내용(task_title)', '마감일자(due_date)', '알림일시(reminder_datetime)',
+      '완료여부(is_completed)', '등록일(created_at)'
     ];
 
     const rows = list.map((t) => [
       t.id, t.consultation_id || '', t.created_by || '', t.agent_name,
-      t.tag || '', `"${(t.task_title || '').replace(/"/g, '""')}"`, t.due_date || '',
+      t.tag || '', `"${(t.task_title || '').replace(/"/g, '""')}"`,
+      formatDisplayDate(t.due_date) || '', formatDisplayDateTime(t.reminder_datetime) || '',
       t.is_completed ? 'TRUE(완료)' : 'FALSE(미완료)', t.created_at || '',
     ]);
 

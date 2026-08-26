@@ -108,22 +108,45 @@ export function formatToInputDate(dateStr?: string): string {
 }
 
 /**
- * DB 저장용 ISO 타임스탬프 규격화 함수
- * 로컬 datetime 문자열("2026-08-28T17:30")을 ISO 8601 UTC 타임스탬프로 정확히 변환
+ * DB 저장용 KST ISO 타임스탬프 규격화 함수
+ * 로컬 datetime 문자열("2026-08-28T17:30")을 KST 타임존 오프셋(+09:00) 포함 문자열로 규격화
+ * Supabase DB Table Editor 대시보드 및 PostgreSQL 테이블에서 08:00 UTC로 찍히는 현상을 차단하고 17:30:00+09:00으로 저장되도록 보장
  */
 export function normalizeToIsoString(dateStr?: string): string | null {
   if (!dateStr || !dateStr.trim()) return null;
   const str = dateStr.trim();
 
-  // 이미 ISO UTC 형태("...Z")이면 변환 없이 그대로 반환 (이중 시프트 방지)
-  if (str.endsWith('Z')) return str;
+  // 이미 +09:00 또는 Z 타임존 오프셋이 명시된 경우 그대로 반환
+  if (str.includes('+') || (str.endsWith('Z') && str.length > 20)) {
+    return str;
+  }
 
   try {
-    // "2026-08-28 17:30" -> "2026-08-28T17:30"
     const formatted = str.replace(' ', 'T');
+    // "2026-08-28T17:30" (시:분) -> "2026-08-28T17:30:00+09:00"
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(formatted)) {
+      return `${formatted}:00+09:00`;
+    }
+    // "2026-08-28T17:30:00" -> "2026-08-28T17:30:00+09:00"
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(formatted)) {
+      return `${formatted}+09:00`;
+    }
+    // "2026-08-28" (날짜 전용)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return str;
+    }
+
     const d = new Date(formatted);
     if (isNaN(d.getTime())) return str;
-    return d.toISOString();
+    
+    // 로컬 시간 기준으로 YYYY-MM-DDTHH:mm:ss+09:00 구성
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const sec = String(d.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}+09:00`;
   } catch {
     return str;
   }

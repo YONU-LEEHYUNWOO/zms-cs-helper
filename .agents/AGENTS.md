@@ -78,6 +78,13 @@ Supabase의 테이블은 엄격한 정규화를 따릅니다. 프론트엔드나
 - 이 컬럼을 payload에 포함 시 PostgREST `400/409` 오류 발생
 - **확인 방법**: `DEVELOPMENT_GUIDE.md > 3.2 ③` 허용 컬럼 목록 참조
 
+## 5.3 ⏰ KST 타임존 (+09:00) 저장 및 DB 마스터 관리자 동기화 수칙 (2026-08-26 확립)
+1. **Supabase DB 저장 시 KST 오프셋 (+09:00) 명시 의무화**:
+   - `reminder_datetime` 및 시간값을 Supabase DB에 저장할 때, 단순 `.toISOString()`(UTC 08:00 시프트) 대신 KST 타임존 오프셋(`+09:00`, 예: `2026-08-28T17:00:00+09:00`)을 붙여 규격화(`normalizeToIsoString`)해야 합니다.
+   - 이를 통해 Supabase 대시보드 테이블 에디터 및 DB 뷰어 상에 08시로 왜곡 표시되는 현상을 원천 차단하고 원래 설정 시각(17시)이 100% 보장되도록 합니다.
+2. **어드민 DB 마스터 관리자 (`DbViewerTab.tsx`) 실시간 행/열 동기화**:
+   - `agent_tasks` DB 테이블의 행/열(컬럼) 변경 시, 어드민 패널 `DbViewerTab`의 `due_date`(마감일자)와 `reminder_datetime`(알림일시) 컬럼이 모두 분리 표출 및 CSV 엑셀 수출 도구에 실시간 동기화 반영되어야 합니다.
+
 ## 6. 🛡️ Supabase 리소스 및 보안 규칙 (Resource & Security Rules)
 무료 플랜의 한계(용량 및 트래픽)를 고려하여 데이터베이스 부하를 최소화해야 합니다.
 1. **음성 파일(Audio) 저장 금지**: CTI 서버의 오디오 파일(.wav, .mp3)을 Supabase Storage나 DB에 직접 저장하지 마세요. 기존 녹취 서버의 URL 주소(`audio_url`) 문자열만 저장하여 스트리밍 방식으로 구현합니다.

@@ -158,12 +158,21 @@ ZMS_CS_HELPER/
   - `DELETED_KEY ('local_deleted_task_ids')` 트래킹 가드를 통해 사용자가 삭제한 행이 롤백 재업로드되지 않도록 100% 보장.
 * **🔄 다단계 이관 연쇄 히스토리 타임라인 (`history JSONB`)**:
   - Supabase `agent_tasks.history` JSONB 컬럼 연동.
-  - 상담사 간 업무 전달 시마다 `{ from_agent, to_agent, transferred_at }` 배열을 누적 기록.
+  - 이관/전달 시 연쇄 이력 타임라인(`is_completed` 무관)을 100% 보관 및 시각적 타임라인 배지로 표출.
+
+### 4.5 ⏰ KST 타임존 (+09:00) 규격화 & 마감/알림 날짜 완벽 분리 (`dateUtils.ts` & `DbViewerTab.tsx`)
+* **KST 타임존 (+09:00) 규격화 저장**:
+  - `reminder_datetime`을 Supabase DB에 저장할 때 단순 `.toISOString()`(UTC 08:00 시프트) 대신 KST 타임존 오프셋(`+09:00`, 예: `2026-08-28T17:00:00+09:00`)을 붙여 규격화(`normalizeToIsoString`).
+  - Supabase DB 대시보드 테이블 에디터 상에 08시로 왜곡되어 찍히는 현상을 원천 차단하고 원래 설정 시각(17시)이 100% 명확히 저장 및 표출되도록 보장.
+* **마감일자(due_date) & 알림일시(reminder_datetime) 완전 분리 및 어드민 DB 동기화**:
+  - `TaskCreateModal` 모달에서 `<input type="date">`(마감일자)와 `<input type="datetime-local">`(알림일시)를 독립 분리하여 입력 및 수정 시/분 리셋 버그 완전 차단.
+  - 어드민 패널 `DbViewerTab`의 `AgentTasks Table`에 `due_date`(마감 일자)와 `reminder_datetime`(알림 일시) 컬럼을 분리 동기화 표출 및 CSV 엑셀 추출 지원.
   - UI 카드에 **`🔄 전달 히스토리: 이현우 ➔ 이동헌 ➔ 김상담`** 시각 배지 및 마우스 호버 타임라인 툴팁 표출.
 
 ### 4.4 🛡️ 배포 전 다방향 다중 계정 실시간 연동 검증 전략 (Pre-Deployment Verification)
 * **이중 창 라이브 검증 프로토콜**: 일반 창(상담사 A) + 시크릿 창(상담사 B) 동시 접속 후 상담 이관 / TODO 업무 전달 시 1초 내 Realtime 알림 뱃지 및 칸반/캘린더 라이브 동기화 검증.
 * **상담사 샌드박스 다중 계정 빠른 전환기**: 단일 개발 PC에서도 1클릭 계정 스위칭을 통해 각 상담원별 격리된 알림 및 담당 업무 화면 정합성 사전 검수.
+
 ### 4.6 👤 사이드바 하단 계정 프로필 & 상담사 어드민 계정 관리 기획 (`LeftSidebar.tsx`)
 * **좌측 하단 계정 프로필 UI 유지 & 직관적 강화**: 상담사가 시각적/가독성 측면에서 가장 직관적이고 편하게 느끼는 좌측 하단 사이드바에 내 계정 프로필 및 어드민 관리 버튼 배치.
 * **내 프로필 정보 조회/수정 모달**: 로그인된 상담원의 정보(이름, 소속 팀, 내선 번호, 비밀번호) 조회 및 수정 지원.
