@@ -183,6 +183,10 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
             value={task.agent_name}
             onChange={(e) => {
               const newAgent = e.target.value;
+              if (newAgent === task.agent_name) {
+                alert(`[이관 불가] "${task.agent_name}" 상담사는 현재 본 업무의 담당자입니다.\n본인에서 본인으로의 동일 상담사 이관은 저장되지 않으므로 타 상담사를 선택해 주세요.`);
+                return;
+              }
               if (
                 window.confirm(
                   `이 업무("${task.task_title}") 담당자를 [${task.agent_name}] ➔ [${newAgent}] (으)로 변경하시겠습니까?`

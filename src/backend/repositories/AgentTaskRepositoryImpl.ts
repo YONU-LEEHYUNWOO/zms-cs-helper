@@ -227,6 +227,11 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
     const target = this.cache.find((t) => t.id === taskId);
     if (!target) return false;
 
+    // 💡 동일 상담사 간 무의미한 중복 이력 저장 방지 차단
+    if (target.agent_name === newAgentName) {
+      return false;
+    }
+
     const fromAgent = operatorAgentName || target.agent_name;
     const historyEntry = {
       from_agent: fromAgent,

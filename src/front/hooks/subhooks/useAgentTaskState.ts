@@ -92,12 +92,20 @@ export function useAgentTaskState(currentAgentName: string) {
   }, [fetchTasks]);
 
   const handleReassignTask = useCallback(async (taskId: string, newAgentName: string) => {
+    const target = tasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    if (target.agent_name === newAgentName) {
+      alert(`[이관 불가] "${newAgentName}" 상담사는 이미 본 업무의 현재 담당자입니다.\n본인에서 본인으로의 동일 상담사 이관은 저장되지 않습니다.`);
+      return;
+    }
+
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, agent_name: newAgentName } : t))
     );
     await agentTaskRepository.reassignTask(taskId, newAgentName, currentAgentName);
     fetchTasks();
-  }, [currentAgentName, fetchTasks]);
+  }, [tasks, currentAgentName, fetchTasks]);
 
   const handleEditTask = useCallback(async (
     taskId: string,
