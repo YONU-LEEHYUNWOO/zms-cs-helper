@@ -8,7 +8,7 @@
  * 4. 사내 다중 상담사 간 1초 실시간 Realtime 동기화 및 전 사내 마스터 공유
  */
 
-import { AgentTask } from '../types';
+import { AgentTask, TaskTransferHistory } from '../types';
 import { IAgentTaskRepository } from './IAgentTaskRepository';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 import { formatToDbReminderDateTime } from '../../lib/utils/dateUtils';
@@ -223,20 +223,39 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
     return true;
   }
 
-  async reassignTask(taskId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean> {
+  async reassignTask(
+    taskId: string,
+    newAgentName: string,
+    operatorAgentName?: string,
+    transferType?: 'transfer' | 'takeover'
+  ): Promise<boolean> {
     const target = this.cache.find((t) => t.id === taskId);
     if (!target) return false;
 
-    // 💡 동일 상담사 간 무의미한 중복 이력 저장 방지 차단
-    if (target.agent_name === newAgentName) {
+    // 1. 기존 실제 담당자 (이전 배정자)
+    const previousOwner = target.agent_name || target.created_by || '미지정';
+    const operator = operatorAgentName || newAgentName;
+
+    // 2. 💡 동일 상담사 간 무의미한 셀프 이관(A -> A) 중복 저장 차단
+    if (previousOwner === newAgentName) {
       return false;
     }
 
-    const fromAgent = operatorAgentName || target.agent_name;
-    const historyEntry = {
-      from_agent: fromAgent,
+    // 3. 이관 방식 판단: 지정된 타입이 없으면 조작자 == 수신자인 경우 가져오기('takeover'), 아니면 전달('transfer')
+    const effectiveType = transferType || (operator === newAgentName ? 'takeover' : 'transfer');
+
+    const historyEntry: TaskTransferHistory = {
+      from_agent: previousOwner,
       to_agent: newAgentName,
+      operator_agent: operator,
       transferred_at: new Date().toISOString(),
+      transfer_type: effectiveType,
+      note:
+        effectiveType === 'takeover'
+          ? `기존 배정자 [${previousOwner}] 상담사의 건을 [${operator}] 상담사가 내 담당으로 가져옴`
+          : previousOwner === operator
+          ? `[${operator}] 상담사가 [${newAgentName}] 상담사에게 업무를 직접 전달함`
+          : `기존 배정자 [${previousOwner}] 상담사의 건을 [${operator}] 상담사가 [${newAgentName}] 상담사에게 전달함`,
     };
 
     const existingHistory = target.history || [];
@@ -250,12 +269,17 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
     return true;
   }
 
-  async reassignTasksByConsultationId(consultationId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean> {
+  async reassignTasksByConsultationId(
+    consultationId: string,
+    newAgentName: string,
+    operatorAgentName?: string,
+    transferType?: 'transfer' | 'takeover'
+  ): Promise<boolean> {
     if (!consultationId) return false;
     const matchingTasks = this.cache.filter((t) => t.consultation_id === consultationId);
 
     for (const t of matchingTasks) {
-      await this.reassignTask(t.id, newAgentName, operatorAgentName);
+      await this.reassignTask(t.id, newAgentName, operatorAgentName, transferType);
     }
     return true;
   }

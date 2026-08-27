@@ -276,7 +276,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
 
   const handleTakeoverConsultation = async (consId: string) => {
     await consultationDomainService.takeoverConsultationToCurrentAgent(consId, currentAgentName);
-    await agentTaskRepository.reassignTasksByConsultationId(consId, currentAgentName, currentAgentName);
+    await agentTaskRepository.reassignTasksByConsultationId(consId, currentAgentName, currentAgentName, 'takeover');
     fetchTasks();
     setSelectedConsultationId(consId);
   };

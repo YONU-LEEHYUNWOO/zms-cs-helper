@@ -32,12 +32,12 @@ export interface IAgentTaskRepository {
   /**
    * TODO 담당 상담사 변경 (업무 이관 연쇄 히스토리 기록)
    */
-  reassignTask(taskId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean>;
+  reassignTask(taskId: string, newAgentName: string, operatorAgentName?: string, transferType?: 'transfer' | 'takeover'): Promise<boolean>;
 
   /**
    * 상담건 이관 시 연관 TODO 담당자 일괄 변경 (연쇄 히스토리 기록)
    */
-  reassignTasksByConsultationId(consultationId: string, newAgentName: string, operatorAgentName?: string): Promise<boolean>;
+  reassignTasksByConsultationId(consultationId: string, newAgentName: string, operatorAgentName?: string, transferType?: 'transfer' | 'takeover'): Promise<boolean>;
 
   /**
    * 실시간 변경 구독 설정

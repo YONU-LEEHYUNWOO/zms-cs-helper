@@ -85,9 +85,11 @@ export interface Consultation {
 }
 
 export interface TaskTransferHistory {
-  from_agent: string;
-  to_agent: string;
-  transferred_at: string;
+  from_agent: string;      // 기존 배정자 (예: '이동헌')
+  to_agent: string;        // 수신 담당자 (예: '김상담' 또는 '이현우')
+  operator_agent?: string; // 이관/전달을 실행한 상담사 (예: '이현우')
+  transferred_at: string;  // 일시
+  transfer_type?: 'transfer' | 'takeover'; // 'transfer' (전달) | 'takeover' (가져옴)
   note?: string;
 }
 

@@ -3,12 +3,13 @@
  * 
  * [역할 및 아키텍처 위치]
  * - src/front/components/tasks/components/TaskHistoryModal.tsx
- * - 특정 AgentTask의 연쇄 이관 타임라인(최초 작성자 ➔ 1차 전달 ➔ 2차 전달 ➔ 최종 담당자) 시각화
- * - AGENTS.md Rule 8 준수: 딤(Dim) 백드롭 클릭 시 닫기 (Backdrop Dismiss & stopPropagation)
+ * - 3인(기존 배정자, 수신 담당자, 이관 조작자) 삼각 관계 한글 서술형 타임라인 카드 시각화
+ * - 호박색(전달) vs 에메랄드색(가져옴) UI 색상 이원화
+ * - AGENTS.md Rule 8 준수: 딤 백드롭 클릭 시 닫기 (Backdrop Dismiss & stopPropagation)
  */
 
 import React from 'react';
-import { X, Send, History, User, Clock, BellRing, Tag } from 'lucide-react';
+import { X, Send, History, User, Clock, BellRing, Tag, Download } from 'lucide-react';
 import { AgentTask } from '../../../../backend/types';
 import { formatDisplayDateTime } from '../../../../lib/utils/dateUtils';
 
@@ -19,12 +20,14 @@ interface TaskHistoryModalProps {
 
 export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClose }) => {
   const initialCreator = task.created_by || (task.history && task.history.length > 0 ? task.history[0].from_agent : task.agent_name);
-  const historyList = task.history || [];
+  
+  // 💡 기존 DB의 무의미한 중복 셀프 이관(from_agent === to_agent) 데이터 자동 제외 정돈
+  const historyList = (task.history || []).filter((h) => h.from_agent !== h.to_agent);
 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -34,7 +37,7 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
         <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-black tracking-tight">📜 업무 전달 & 이관 히스토리</h3>
+            <h3 className="text-base font-black tracking-tight">📜 업무 전달 & 이관 연쇄 히스토리</h3>
           </div>
           <button
             type="button"
@@ -75,7 +78,7 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
               ✍️ 최초 작성: <strong className="text-slate-900">{initialCreator}</strong>
             </span>
             <span>
-              👤 현재 담당: <strong className="text-amber-700">{task.agent_name}</strong>
+              👤 현재 담당: <strong className="text-amber-800">{task.agent_name}</strong>
             </span>
           </div>
         </div>
@@ -84,51 +87,104 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
           <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5 text-amber-600" />
-            <span>단계별 전달 / 담당 변경 기록 ({historyList.length > 0 ? historyList.length : (initialCreator !== task.agent_name ? 1 : 0)}건)</span>
+            <span>단계별 전달 / 담당 가져오기 서술 기록 ({historyList.length > 0 ? historyList.length : (initialCreator !== task.agent_name ? 1 : 0)}건)</span>
           </p>
 
           {historyList.length > 0 ? (
-            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200">
-              {historyList.map((h, idx) => (
-                <div key={idx} className="relative flex flex-col gap-1 text-xs">
-                  <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] ring-4 ring-white shadow-xs">
-                    {idx + 1}
-                  </div>
-                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 space-y-1">
-                    <div className="flex items-center justify-between font-bold text-amber-900">
-                      <span className="flex items-center gap-1">
-                        <User className="w-3.5 h-3.5 text-amber-700" />
-                        {h.from_agent} ➔ {h.to_agent} (이관)
-                      </span>
-                      <span className="text-[10px] text-amber-700/80 font-normal">
-                        {formatDisplayDateTime(h.transferred_at)}
-                      </span>
+            <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+              {historyList.map((h, idx) => {
+                const isTakeover = h.transfer_type === 'takeover' || h.to_agent === h.operator_agent;
+
+                return (
+                  <div key={idx} className="relative flex flex-col gap-1 text-xs">
+                    <div
+                      className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[10px] ring-4 ring-white shadow-xs ${
+                        isTakeover ? 'bg-emerald-600' : 'bg-amber-500'
+                      }`}
+                    >
+                      {idx + 1}
                     </div>
-                    {h.note && (
-                      <p className="text-[11px] text-slate-600 bg-white/70 p-1.5 rounded border border-amber-100 mt-1">
-                        💬 전달 메모: {h.note}
+
+                    <div
+                      className={`rounded-xl p-3.5 border space-y-1.5 shadow-3xs ${
+                        isTakeover
+                          ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                          : 'bg-amber-50/80 border-amber-200 text-amber-950'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1.5 text-xs">
+                          {isTakeover ? (
+                            <span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black">
+                              📥 담당 가져옴
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black">
+                              📤 업무 전달
+                            </span>
+                          )}
+                          <strong className="underline decoration-slate-300 underline-offset-2">
+                            {h.from_agent}
+                          </strong>{' '}
+                          ➔{' '}
+                          <strong className="text-indigo-900">
+                            {h.to_agent}
+                          </strong>
+                        </span>
+                        <span className="text-[10px] opacity-75 font-normal">
+                          {formatDisplayDateTime(h.transferred_at)}
+                        </span>
+                      </div>
+
+                      {/* 한글 서술형 상세 설명 문장 */}
+                      <p className="text-[11px] font-medium leading-relaxed bg-white/80 p-2 rounded-lg border border-slate-200/60 text-slate-800">
+                        {h.note ? (
+                          h.note
+                        ) : isTakeover ? (
+                          <>
+                            기존 배정자 <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사의 건을{' '}
+                            <strong className="text-emerald-700">[{h.to_agent}]</strong> 상담사가 내 담당으로 가져옴
+                          </>
+                        ) : h.operator_agent && h.operator_agent !== h.from_agent ? (
+                          <>
+                            기존 배정자 <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사의 건을{' '}
+                            <strong className="text-blue-700">[{h.operator_agent}]</strong> 상담사가{' '}
+                            <strong className="text-amber-800">[{h.to_agent}]</strong> 상담사에게 전달함
+                          </>
+                        ) : (
+                          <>
+                            <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사가{' '}
+                            <strong className="text-amber-800">[{h.to_agent}]</strong> 상담사에게 업무를 직접 전달함
+                          </>
+                        )}
                       </p>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : initialCreator !== task.agent_name ? (
-            <div className="relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200">
+            <div className="relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-emerald-200">
               <div className="relative flex flex-col gap-1 text-xs">
-                <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] ring-4 ring-white shadow-xs">
+                <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] ring-4 ring-white shadow-xs">
                   1
                 </div>
-                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 space-y-1">
-                  <div className="flex items-center justify-between font-bold text-amber-900">
-                    <span className="flex items-center gap-1">
-                      <User className="w-3.5 h-3.5 text-amber-700" />
-                      {initialCreator} ➔ {task.agent_name} (최초 이관)
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 space-y-1 text-emerald-950">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black">
+                        📥 담당 가져옴
+                      </span>
+                      {initialCreator} ➔ {task.agent_name}
                     </span>
-                    <span className="text-[10px] text-amber-700/80 font-normal">
+                    <span className="text-[10px] opacity-75 font-normal">
                       {formatDisplayDateTime(task.created_at)}
                     </span>
                   </div>
+                  <p className="text-[11px] font-medium leading-relaxed bg-white/80 p-2 rounded-lg border border-emerald-100 text-slate-800">
+                    기존 작성자 <strong className="text-slate-900">[{initialCreator}]</strong> 상담사의 건을{' '}
+                    <strong className="text-emerald-700">[{task.agent_name}]</strong> 상담사가 담당으로 가져옴
+                  </p>
                 </div>
               </div>
             </div>

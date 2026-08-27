@@ -48,9 +48,13 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
 }) => {
   const matchedCons = consultations.find((c) => c.id === task.consultation_id);
 
-  // 이관 경로 계산 (최초 작성자 ➔ 최종 담당자)
-  const initialCreator = task.created_by || (task.history && task.history.length > 0 ? task.history[0].from_agent : task.agent_name);
-  const isTransferred = initialCreator !== task.agent_name || (task.history && task.history.length > 0);
+  // 이관 경로 및 타입 계산 (최초 작성자 ➔ 최종 담당자)
+  const historyList = (task.history || []).filter((h) => h.from_agent !== h.to_agent);
+  const lastHistory = historyList.length > 0 ? historyList[historyList.length - 1] : null;
+
+  const initialCreator = task.created_by || (historyList.length > 0 ? historyList[0].from_agent : task.agent_name);
+  const isTransferred = initialCreator !== task.agent_name || historyList.length > 0;
+  const isLastTakeover = lastHistory ? (lastHistory.transfer_type === 'takeover' || lastHistory.to_agent === lastHistory.operator_agent) : (initialCreator !== task.agent_name);
 
   const getTagBadgeStyle = (tag?: string) => {
     switch (tag) {
@@ -111,14 +115,29 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
               <button
                 type="button"
                 onClick={() => onViewHistory && onViewHistory(task)}
-                className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1 shadow-3xs transition-colors cursor-pointer"
-                title="클릭하여 상세 전달/이관 연쇄 히스토리 타임라인 보기"
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 shadow-3xs transition-colors cursor-pointer ${
+                  isLastTakeover
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-300'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-300'
+                }`}
+                title="클릭하여 상세 3인 서술형 이관 히스토리 모달 열기"
               >
-                <Send className="w-3 h-3 text-amber-600 shrink-0" />
-                <span>
-                  작성: {initialCreator} ➔ 담당: <strong className="text-amber-800">{task.agent_name}</strong>
-                </span>
-                <History className="w-3 h-3 text-amber-700 ml-0.5" />
+                {isLastTakeover ? (
+                  <>
+                    <span className="text-[9px] bg-emerald-600 text-white px-1 rounded font-black">📥 가져옴</span>
+                    <span>
+                      기존: {lastHistory ? lastHistory.from_agent : initialCreator} ➔ <strong className="text-emerald-800">{task.agent_name}</strong>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[9px] bg-amber-500 text-white px-1 rounded font-black">📤 전달</span>
+                    <span>
+                      {lastHistory ? `${lastHistory.from_agent} ➔ ${task.agent_name}` : `작성: ${initialCreator} ➔ 담당: ${task.agent_name}`}
+                    </span>
+                  </>
+                )}
+                <History className="w-3 h-3 ml-0.5 opacity-75" />
               </button>
             ) : (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
