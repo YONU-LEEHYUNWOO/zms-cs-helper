@@ -3,8 +3,8 @@
  * 
  * [역할 및 아키텍처 위치]
  * - src/front/components/tasks/components/TaskHistoryModal.tsx
+ * - 보낸 사람(보라색/인디고) ➔ 받는 사람(주황색/에메랄드) 역할 기반 색상 이원화 (Role-based Color System)
  * - 3인(기존 배정자, 수신 담당자, 이관 조작자) 삼각 관계 한글 서술형 타임라인 카드 시각화
- * - 호박색(전달) vs 에메랄드색(가져옴) UI 색상 이원화 및 폰트 굵기/하이라이트 100% 동기화 렌더링
  * - AGENTS.md Rule 8 준수: 딤 백드롭 클릭 시 닫기 (Backdrop Dismiss & stopPropagation)
  */
 
@@ -25,26 +25,52 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
   const historyList = (task.history || []).filter((h) => h.from_agent !== h.to_agent);
 
   /**
-   * 💡 DB에서 로드된 노트 문자열 내의 [상담사명] 기호를 파싱하여 
-   *    볼드/하이라이트 font-black 굵기를 100% 동일하게 균일 렌더링하는 헬퍼
+   * 💡 역할 기반 명확한 색상 분리 렌더링 헬퍼
+   * - 보낸 사람/기존 배정자 (from_agent / operator_agent): 💜 인디고/보라색 배지 (스마트 구분)
+   * - 받는 사람/수신 담당자 (to_agent): 🟧 주황색 (전달 시) / 🟩 에메랄드 (가져옴 시)
    */
-  const renderFormattedNote = (noteText: string, isTakeover: boolean) => {
+  const renderRoleBasedNote = (
+    noteText: string,
+    isTakeover: boolean,
+    fromAgent: string,
+    toAgent: string,
+    operatorAgent?: string
+  ) => {
     const parts = noteText.split(/(\[[^\]]+\])/g);
     return (
-      <span>
+      <span className="leading-relaxed">
         {parts.map((part, i) => {
           if (part.startsWith('[') && part.endsWith(']')) {
             const agentName = part.slice(1, -1);
-            return (
-              <strong
-                key={i}
-                className={`font-black ${
-                  isTakeover ? 'text-emerald-800 font-black' : 'text-amber-800 font-black'
-                }`}
-              >
-                [{agentName}]
-              </strong>
-            );
+            const isReceiver = agentName === toAgent;
+
+            if (isReceiver) {
+              // 🎯 받는 사람 (To / Receiver)
+              return (
+                <span
+                  key={i}
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded-md font-black border text-[11px] ${
+                    isTakeover
+                      ? 'bg-emerald-100 text-emerald-950 border-emerald-300 shadow-3xs'
+                      : 'bg-amber-100 text-amber-950 border-amber-300 shadow-3xs'
+                  }`}
+                >
+                  <User className="w-3 h-3 inline shrink-0 opacity-80" />
+                  {agentName}
+                </span>
+              );
+            } else {
+              // 💜 보낸 사람 / 기존 배정자 (From / Sender / Operator)
+              return (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded-md font-black border text-[11px] bg-indigo-100 text-indigo-950 border-indigo-200 shadow-3xs"
+                >
+                  <User className="w-3 h-3 inline shrink-0 text-indigo-600" />
+                  {agentName}
+                </span>
+              );
+            }
           }
           return <span key={i}>{part}</span>;
         })}
@@ -102,11 +128,11 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
           <h4 className="text-sm font-black text-slate-900 leading-snug">{task.task_title}</h4>
 
           <div className="pt-2 text-xs text-slate-600 flex items-center justify-between border-t border-slate-200/80">
-            <span>
-              ✍️ 최초 작성: <strong className="text-slate-900 font-bold">{initialCreator}</strong>
+            <span className="flex items-center gap-1">
+              ✍️ 최초 작성: <strong className="text-indigo-950 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{initialCreator}</strong>
             </span>
-            <span>
-              👤 현재 담당: <strong className="text-amber-800 font-bold">{task.agent_name}</strong>
+            <span className="flex items-center gap-1">
+              👤 현재 담당: <strong className="text-amber-900 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{task.agent_name}</strong>
             </span>
           </div>
         </div>
@@ -142,40 +168,54 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
                     </div>
 
                     <div
-                      className={`rounded-xl p-3.5 border space-y-1.5 shadow-3xs ${
+                      className={`rounded-xl p-3.5 border space-y-2 shadow-3xs ${
                         isTakeover
                           ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
                           : 'bg-amber-50/80 border-amber-200 text-amber-950'
                       }`}
                     >
                       <div className="flex items-center justify-between font-bold">
-                        <span className="flex items-center gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5 text-xs flex-wrap">
                           {isTakeover ? (
-                            <span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black">
+                            <span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black shrink-0">
                               📥 담당 가져옴
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black">
+                            <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black shrink-0">
                               📤 업무 전달
                             </span>
                           )}
-                          <strong className="font-bold underline decoration-slate-300 underline-offset-2">
+
+                          {/* 💜 보낸 사람 (인디고 칩) */}
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-950 border border-indigo-200 rounded-md text-[11px] font-black">
+                            <User className="w-3 h-3 text-indigo-600" />
                             {h.from_agent}
-                          </strong>{' '}
-                          ➔{' '}
-                          <strong className="font-bold text-indigo-900">
+                          </span>
+
+                          <span className="text-slate-400 font-bold">➔</span>
+
+                          {/* 🟧/🟩 받는 사람 (주황/에메랄드 칩) */}
+                          <span
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 border rounded-md text-[11px] font-black ${
+                              isTakeover
+                                ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                                : 'bg-amber-100 text-amber-950 border-amber-300'
+                            }`}
+                          >
+                            <User className="w-3 h-3 opacity-80" />
                             {h.to_agent}
-                          </strong>
-                        </span>
-                        <span className="text-[10px] opacity-75 font-normal">
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] opacity-75 font-normal shrink-0">
                           {formatDisplayDateTime(h.transferred_at)}
                         </span>
                       </div>
 
-                      {/* 한글 서술형 상세 설명 문장 (볼드 하이라이트 균일 렌더링) */}
-                      <p className="text-[11px] font-medium leading-relaxed bg-white/90 p-2 rounded-lg border border-slate-200/60 text-slate-800">
-                        {renderFormattedNote(textToRender, isTakeover)}
-                      </p>
+                      {/* 한글 서술형 상세 설명 문장 (보낸 사람: 보라색 / 받는 사람: 주황/에메랄드색 스마트 분리) */}
+                      <div className="text-[11px] font-medium leading-relaxed bg-white/90 p-2.5 rounded-lg border border-slate-200/60 text-slate-800">
+                        {renderRoleBasedNote(textToRender, isTakeover, h.from_agent, h.to_agent, h.operator_agent)}
+                      </div>
                     </div>
                   </div>
                 );
@@ -187,24 +227,34 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
                 <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] ring-4 ring-white shadow-xs">
                   1
                 </div>
-                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 space-y-1 text-emerald-950">
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 space-y-2 text-emerald-950">
                   <div className="flex items-center justify-between font-bold">
-                    <span className="flex items-center gap-1.5 text-xs">
+                    <div className="flex items-center gap-1.5 text-xs flex-wrap">
                       <span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black">
                         📥 담당 가져옴
                       </span>
-                      {initialCreator} ➔ {task.agent_name}
-                    </span>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-950 border border-indigo-200 rounded-md text-[11px] font-black">
+                        <User className="w-3 h-3 text-indigo-600" />
+                        {initialCreator}
+                      </span>
+                      <span className="text-slate-400 font-bold">➔</span>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-300 rounded-md text-[11px] font-black">
+                        <User className="w-3 h-3 text-emerald-700" />
+                        {task.agent_name}
+                      </span>
+                    </div>
                     <span className="text-[10px] opacity-75 font-normal">
                       {formatDisplayDateTime(task.created_at)}
                     </span>
                   </div>
-                  <p className="text-[11px] font-medium leading-relaxed bg-white/90 p-2 rounded-lg border border-emerald-100 text-slate-800">
-                    {renderFormattedNote(
+                  <div className="text-[11px] font-medium leading-relaxed bg-white/90 p-2.5 rounded-lg border border-emerald-100 text-slate-800">
+                    {renderRoleBasedNote(
                       `기존 작성자 [${initialCreator}] 상담사의 건을 [${task.agent_name}] 상담사가 담당으로 가져옴`,
-                      true
+                      true,
+                      initialCreator,
+                      task.agent_name
                     )}
-                  </p>
+                  </div>
                 </div>
               </div>
             </div>
