@@ -195,6 +195,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
       {/* 5. Create / Edit Task Modal */}
       {showCreateModal && (
         <TaskCreateModal
+          isOpen={showCreateModal}
           agents={agents}
           currentAgentName={currentAgentName}
           taskToEdit={taskToEdit}

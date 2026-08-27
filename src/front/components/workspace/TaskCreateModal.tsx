@@ -13,7 +13,7 @@ import { AgentTask, InternalAgent } from '../../../backend/types';
 import { formatToInputDateTime, calculateReminderTime, detectReminderOffset } from '../../../lib/utils/dateUtils';
 
 interface TaskCreateModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   agents: InternalAgent[];
   currentAgentName: string;
@@ -80,7 +80,7 @@ export const TaskCreateModal: React.FC<TaskCreateModalProps> = ({
     }
   }, [isOpen, taskToEdit, currentAgentName]);
 
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
