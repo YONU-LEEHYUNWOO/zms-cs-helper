@@ -4,12 +4,12 @@
  * [역할 및 아키텍처 위치]
  * - src/front/components/tasks/components/TaskHistoryModal.tsx
  * - 3인(기존 배정자, 수신 담당자, 이관 조작자) 삼각 관계 한글 서술형 타임라인 카드 시각화
- * - 호박색(전달) vs 에메랄드색(가져옴) UI 색상 이원화
+ * - 호박색(전달) vs 에메랄드색(가져옴) UI 색상 이원화 및 폰트 굵기/하이라이트 100% 동기화 렌더링
  * - AGENTS.md Rule 8 준수: 딤 백드롭 클릭 시 닫기 (Backdrop Dismiss & stopPropagation)
  */
 
 import React from 'react';
-import { X, Send, History, User, Clock, BellRing, Tag, Download } from 'lucide-react';
+import { X, Send, History, User, Clock, BellRing, Tag } from 'lucide-react';
 import { AgentTask } from '../../../../backend/types';
 import { formatDisplayDateTime } from '../../../../lib/utils/dateUtils';
 
@@ -23,6 +23,34 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
   
   // 💡 기존 DB의 무의미한 중복 셀프 이관(from_agent === to_agent) 데이터 자동 제외 정돈
   const historyList = (task.history || []).filter((h) => h.from_agent !== h.to_agent);
+
+  /**
+   * 💡 DB에서 로드된 노트 문자열 내의 [상담사명] 기호를 파싱하여 
+   *    볼드/하이라이트 font-black 굵기를 100% 동일하게 균일 렌더링하는 헬퍼
+   */
+  const renderFormattedNote = (noteText: string, isTakeover: boolean) => {
+    const parts = noteText.split(/(\[[^\]]+\])/g);
+    return (
+      <span>
+        {parts.map((part, i) => {
+          if (part.startsWith('[') && part.endsWith(']')) {
+            const agentName = part.slice(1, -1);
+            return (
+              <strong
+                key={i}
+                className={`font-black ${
+                  isTakeover ? 'text-emerald-800 font-black' : 'text-amber-800 font-black'
+                }`}
+              >
+                [{agentName}]
+              </strong>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        })}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -75,10 +103,10 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
 
           <div className="pt-2 text-xs text-slate-600 flex items-center justify-between border-t border-slate-200/80">
             <span>
-              ✍️ 최초 작성: <strong className="text-slate-900">{initialCreator}</strong>
+              ✍️ 최초 작성: <strong className="text-slate-900 font-bold">{initialCreator}</strong>
             </span>
             <span>
-              👤 현재 담당: <strong className="text-amber-800">{task.agent_name}</strong>
+              👤 현재 담당: <strong className="text-amber-800 font-bold">{task.agent_name}</strong>
             </span>
           </div>
         </div>
@@ -94,6 +122,14 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
             <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
               {historyList.map((h, idx) => {
                 const isTakeover = h.transfer_type === 'takeover' || h.to_agent === h.operator_agent;
+
+                const defaultText = isTakeover
+                  ? `기존 배정자 [${h.from_agent}] 상담사의 건을 [${h.to_agent}] 상담사가 내 담당으로 가져옴`
+                  : h.operator_agent && h.operator_agent !== h.from_agent
+                  ? `기존 배정자 [${h.from_agent}] 상담사의 건을 [${h.operator_agent}] 상담사가 [${h.to_agent}] 상담사에게 전달함`
+                  : `[${h.from_agent}] 상담사가 [${h.to_agent}] 상담사에게 업무를 직접 전달함`;
+
+                const textToRender = h.note || defaultText;
 
                 return (
                   <div key={idx} className="relative flex flex-col gap-1 text-xs">
@@ -123,11 +159,11 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
                               📤 업무 전달
                             </span>
                           )}
-                          <strong className="underline decoration-slate-300 underline-offset-2">
+                          <strong className="font-bold underline decoration-slate-300 underline-offset-2">
                             {h.from_agent}
                           </strong>{' '}
                           ➔{' '}
-                          <strong className="text-indigo-900">
+                          <strong className="font-bold text-indigo-900">
                             {h.to_agent}
                           </strong>
                         </span>
@@ -136,27 +172,9 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
                         </span>
                       </div>
 
-                      {/* 한글 서술형 상세 설명 문장 */}
-                      <p className="text-[11px] font-medium leading-relaxed bg-white/80 p-2 rounded-lg border border-slate-200/60 text-slate-800">
-                        {h.note ? (
-                          h.note
-                        ) : isTakeover ? (
-                          <>
-                            기존 배정자 <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사의 건을{' '}
-                            <strong className="text-emerald-700">[{h.to_agent}]</strong> 상담사가 내 담당으로 가져옴
-                          </>
-                        ) : h.operator_agent && h.operator_agent !== h.from_agent ? (
-                          <>
-                            기존 배정자 <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사의 건을{' '}
-                            <strong className="text-blue-700">[{h.operator_agent}]</strong> 상담사가{' '}
-                            <strong className="text-amber-800">[{h.to_agent}]</strong> 상담사에게 전달함
-                          </>
-                        ) : (
-                          <>
-                            <strong className="text-slate-900">[{h.from_agent}]</strong> 상담사가{' '}
-                            <strong className="text-amber-800">[{h.to_agent}]</strong> 상담사에게 업무를 직접 전달함
-                          </>
-                        )}
+                      {/* 한글 서술형 상세 설명 문장 (볼드 하이라이트 균일 렌더링) */}
+                      <p className="text-[11px] font-medium leading-relaxed bg-white/90 p-2 rounded-lg border border-slate-200/60 text-slate-800">
+                        {renderFormattedNote(textToRender, isTakeover)}
                       </p>
                     </div>
                   </div>
@@ -181,9 +199,11 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ task, onClos
                       {formatDisplayDateTime(task.created_at)}
                     </span>
                   </div>
-                  <p className="text-[11px] font-medium leading-relaxed bg-white/80 p-2 rounded-lg border border-emerald-100 text-slate-800">
-                    기존 작성자 <strong className="text-slate-900">[{initialCreator}]</strong> 상담사의 건을{' '}
-                    <strong className="text-emerald-700">[{task.agent_name}]</strong> 상담사가 담당으로 가져옴
+                  <p className="text-[11px] font-medium leading-relaxed bg-white/90 p-2 rounded-lg border border-emerald-100 text-slate-800">
+                    {renderFormattedNote(
+                      `기존 작성자 [${initialCreator}] 상담사의 건을 [${task.agent_name}] 상담사가 담당으로 가져옴`,
+                      true
+                    )}
                   </p>
                 </div>
               </div>
