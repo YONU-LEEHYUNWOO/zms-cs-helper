@@ -4,7 +4,7 @@
  * [역할 및 아키텍처 위치]
  * - src/front/components/tasks/components/TaskItemRow.tsx
  * - 개별 AgentTask 렌더링, 완료 체크박스, 이관 경로 배지 (`최초 작성: X ➔ 현재 담당: Y`),
- *   수정/이관/삭제 및 연관 상담실 1클릭 이동 버튼
+ *   전달 히스토리 상세 보기 모달 팝업 연결, 수정/이관/삭제 및 연관 상담실 1클릭 이동 버튼
  */
 
 import React from 'react';
@@ -15,8 +15,8 @@ import {
   Edit2,
   BellRing,
   User,
-  UserCheck,
   Send,
+  History,
 } from 'lucide-react';
 import { AgentTask, Consultation, InternalAgent } from '../../../../backend/types';
 import { formatDisplayDateTime } from '../../../../lib/utils/dateUtils';
@@ -31,6 +31,7 @@ interface TaskItemRowProps {
   onReassignTask?: (taskId: string, newAgentName: string) => void;
   onEditTaskClick: (task: AgentTask) => void;
   onGoToConsultation: (consId: string) => void;
+  onViewHistory?: (task: AgentTask) => void;
 }
 
 export const TaskItemRow: React.FC<TaskItemRowProps> = ({
@@ -43,10 +44,9 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
   onReassignTask,
   onEditTaskClick,
   onGoToConsultation,
+  onViewHistory,
 }) => {
   const matchedCons = consultations.find((c) => c.id === task.consultation_id);
-  const isMine = task.agent_name === currentAgentName;
-  const isCreatorMine = task.created_by === currentAgentName;
 
   // 이관 경로 계산 (최초 작성자 ➔ 최종 담당자)
   const initialCreator = task.created_by || (task.history && task.history.length > 0 ? task.history[0].from_agent : task.agent_name);
@@ -106,21 +106,20 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
               </span>
             )}
 
-            {/* 이관 경로 배지 (사용자 구상 100% 반영: 최초 작성자 ➔ 최종 담당자) */}
+            {/* 이관 경로 배지 (클릭 시 상세 전달 히스토리 모달 오픈) */}
             {isTransferred ? (
-              <span
-                className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 flex items-center gap-1 shadow-3xs"
-                title={
-                  task.history && task.history.length > 0
-                    ? `연쇄 전달 히스토리:\n${task.history.map((h, i) => `${i + 1}. ${h.from_agent} ➔ ${h.to_agent} (${h.transferred_at.slice(0, 16).replace('T', ' ')})`).join('\n')}`
-                    : `최초 작성: ${initialCreator} ➔ 현재 담당: ${task.agent_name}`
-                }
+              <button
+                type="button"
+                onClick={() => onViewHistory && onViewHistory(task)}
+                className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1 shadow-3xs transition-colors cursor-pointer"
+                title="클릭하여 상세 전달/이관 연쇄 히스토리 타임라인 보기"
               >
                 <Send className="w-3 h-3 text-amber-600 shrink-0" />
                 <span>
                   작성: {initialCreator} ➔ 담당: <strong className="text-amber-800">{task.agent_name}</strong>
                 </span>
-              </span>
+                <History className="w-3 h-3 text-amber-700 ml-0.5" />
+              </button>
             ) : (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
                 <User className="w-3 h-3 text-slate-500" />
@@ -165,6 +164,19 @@ export const TaskItemRow: React.FC<TaskItemRowProps> = ({
 
       {/* 우측 조치 버튼 그룹 */}
       <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+        {/* 전달/이관 히스토리 보기 버튼 */}
+        {onViewHistory && (
+          <button
+            type="button"
+            onClick={() => onViewHistory(task)}
+            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg border border-amber-200/80 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-3xs active:scale-95"
+            title="전달 및 담당자 이관 히스토리 보기"
+          >
+            <History className="w-3.5 h-3.5 text-amber-600" />
+            <span>히스토리</span>
+          </button>
+        )}
+
         {/* 담당자 이관 드롭다운 */}
         {onReassignTask && !task.is_completed && (
           <select

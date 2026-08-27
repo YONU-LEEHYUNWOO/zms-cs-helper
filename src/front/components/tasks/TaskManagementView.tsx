@@ -20,6 +20,8 @@ import { TaskStatusCards } from './components/TaskStatusCards';
 import { TaskFilterToolbar } from './components/TaskFilterToolbar';
 import { TaskItemRow } from './components/TaskItemRow';
 
+import { TaskHistoryModal } from './components/TaskHistoryModal';
+
 interface TaskManagementViewProps {
   tasks: AgentTask[];
   agents: InternalAgent[];
@@ -69,6 +71,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<AgentTask | null>(null);
+  const [taskForHistory, setTaskForHistory] = useState<AgentTask | null>(null);
 
   // 1. 통계 요약 수치 계산
   const stats = useMemo(() => calculateTaskStats(tasks, currentAgentName), [tasks, currentAgentName]);
@@ -182,6 +185,7 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
                   setShowCreateModal(true);
                 }}
                 onGoToConsultation={handleGoToConsultation}
+                onViewHistory={(t) => setTaskForHistory(t)}
               />
             ))
           )}
@@ -200,6 +204,14 @@ export const TaskManagementView: React.FC<TaskManagementViewProps> = ({
           }}
           onAddTask={onAddTask}
           onEditTask={onEditTask}
+        />
+      )}
+
+      {/* 6. View Task Transfer History Modal */}
+      {taskForHistory && (
+        <TaskHistoryModal
+          task={taskForHistory}
+          onClose={() => setTaskForHistory(null)}
         />
       )}
     </div>
