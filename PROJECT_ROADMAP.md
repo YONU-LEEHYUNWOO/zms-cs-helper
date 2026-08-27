@@ -101,25 +101,28 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 * **CTI 수신 목록 1클릭 원스톱 AI 오디오 STT 분석 (`CtiRecordTable.tsx`)**: 좌측 리스트 행의 `[🎙️ 분석]` 버튼 1클릭만으로 **해당 통화건을 선택함과 동시에 Gemini 3.5 AI 음성 STT 분석(`handleAnalyzeSelectedCall(false, rec.callIdx)`)이 2초 만에 즉시 실행**되도록 완전 일체화.
 * **A/B 통화 전환 시 잔상 0.01초 즉시 초기화 (`useCtiCollector.ts`)**: A통화 분석 결과가 잔상으로 남아 2번 클릭해야 하던 비동기 상태 딜레이를 명시적 `targetCallIdx` 파라미터 및 `setAudioAnalysisResult(null)` 즉시 초기화로 100% 원천 해결.
 
+### 2-22. ⏰ TODO & 리마인더 Option 1 (통합 일시 + 1클릭 미리 알림) & Realtime Publication 분석 (2026-08-26 완료)
+* **Option 1 UI/UX 완수 (`TaskCreateModal.tsx`, `dateUtils.ts`)**: `datetime-local` 통합 일시 선택창과 5개 1클릭 미리 알림 버튼(`[정각 알림]`, `[10분 전]`, `[30분 전]`, `[1시간 전]`, `[알림 안함]`) 탑재 및 시각 차이 자동 감지 연동.
+* **Supabase DB text 타입 규격화 (`AgentTaskRepositoryImpl.ts`)**: `agent_tasks.reminder_datetime` 컬럼을 `text` 타입으로 변경하여 PostgreSQL UTC 시프트 없이 로컬 시각(`YYYY-MM-DD HH:mm`) 100% 보장 저장.
+* **Realtime Publication 지연 원인 규명 및 모듈화 기획**: Supabase PostgreSQL `supabase_realtime` publication의 핵심 테이블 누락 발견 및 `useAppData.ts`(1,002줄), `TaskManagementView.tsx`(612줄)의 500줄 이하 모듈화 구조 설계 완수.
+
 ---
 
-## 3. 🟡 차세대 SaaS 고도화 & UI/UX 개선 기획 로드맵 (Future Roadmap)
+## 3. 🟡 차세대 SaaS 고도화 & 다음 에이전트 개발 로드맵 (Immediate Tasks for Next Agent)
 
-### 3-1. 🎨 UI/UX 감성 및 인터랙션 디자인 고도화 (UI Aesthetics & Micro-Animations)
-* **목적**: 사용자가 첫눈에 감탄하는 프리미엄 SaaS 인터페이스 제공.
-* **상세 기획**:
-  1. **Glassmorphism & Vibrant Gradient Theme**: 카드 및 탑바에 은은한 다크 딥 블루 블러 효과 및 HSLTailored 수직 그라데이션 적용.
-  2. **Micro-Animations (Framer Motion / Lucide Active Effect)**: 버튼 클릭 및 탭 전환 시 0.15초 바운스 micro-animation 및 알림 뱃지 pulse 인터랙션 적용.
-  3. **Toast Notification Center**: 우측 하단 3초 수직 스택 Toast 메시지 컨테이너 구축하여 DB 저장/삭제/이관 결과를 시각적으로 알림.
+### 3-1. ⚡ Supabase Realtime Publication DB 적용 및 계정 간 500ms 이내 실시간 동기화
+* **목적**: Account A에서 처리한 상담/TODO 변경 사항이 Account B 화면에 새로고침 없이 500ms 이내 즉각 표출되도록 처리.
+* **실행 명령**: `ALTER PUBLICATION supabase_realtime ADD TABLE consultations, agent_tasks, customers, internal_agents;` (Supabase MCP `execute_sql` 사용).
 
-### 3-2. 🎵 CTI 오디오 파동(Waveform) 인터랙티브 플레이어 고도화
-* **목적**: CTI 녹취 파일 재생 시 실제 오디오 파형(Waveform)을 시각화하고 구간 클릭 이동 기능 제공.
-* **상세 기획**:
-  1. `WaveSurfer.js` 또는 Web Audio API 기반 오디오 파동 캔버스 탑재.
-  2. STT 대본의 특정 구간 텍스트 클릭 시 오디오 해당 초(Second)로 1초 만에 인디케이터 점프 재생.
+### 3-2. 🧹 단일 파일 500줄 제한 준수를 위한 거대 파일 모듈화 분리 (`AGENTS.md` Rule 2)
+* **`useAppData.ts` (1,002줄 ➔ ~250줄)**: `useConsultationState.ts`, `useAgentTaskState.ts`, `useCustomerState.ts` 전용 subhooks 분리.
+* **`TaskManagementView.tsx` (612줄 ➔ ~150줄)**: `taskFilterUtils.ts`, `TaskStatusCards.tsx`, `TaskFilterToolbar.tsx`, `TaskItemRow.tsx` 분리.
 
-### 3-3. 🔍 다중 조건 스마트 검색 & 필터링 툴바
-* **목적**: 차량번호, 연락처, 주차장명, 담당자, 날짜 범위를 결합한 복합 스마트 검색기 제공.
+### 3-3. 📋 TODO 관제 상단 4개 KPI 현황판 카드 필터링 조건 정밀 개편
+* **Card 1 (`내 담당 미완료 TODO`)**: `currentAgentName` 기준 미완료 TODO 엄격 필터링.
+* **Card 2 (`내가 타 상담사에 전달한 건`)**: 작성자가 본인이고 담당자가 타 상담사인 미완료 이관 TODO 필터링.
+* **Card 3 (`오늘 마감 / 알림 / 지연 항목`)**: `due_date` 당일 + `reminder_datetime` 오늘 + 미완료 **지연(Overdue) 항목**까지 통합 포획.
+* **Card 4 (`사내 전체 상담사 TODO`)**: 사내 모든 상담사의 미완료 TODO 전체 표출.
 
 ---
 
@@ -147,4 +150,5 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ---
 
-*최종 업데이트: 2026-08-26 (AgentTaskRepositoryImpl 전담 리포지토리, 다단계 이관 연쇄 히스토리 완수 및 UI/UX 로드맵 수립) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-08-26 (TODO Option 1 규격화, Supabase Realtime Publication 지연 원인 규명 및 500줄 모듈화 개편안 완수) / 담당 AI: Antigravity*
+

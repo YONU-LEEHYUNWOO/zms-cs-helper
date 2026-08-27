@@ -160,13 +160,13 @@ ZMS_CS_HELPER/
   - Supabase `agent_tasks.history` JSONB 컬럼 연동.
   - 이관/전달 시 연쇄 이력 타임라인(`is_completed` 무관)을 100% 보관 및 시각적 타임라인 배지로 표출.
 
-### 4.5 ⏰ 로컬 알림 시각 DB 저장 & 마감/알림 날짜 완벽 분리 (`dateUtils.ts` & `DbViewerTab.tsx`)
-* **로컬 시각 규격화 저장 (`reminder_datetime`)**:
-  - `reminder_datetime`을 Supabase DB `agent_tasks` 테이블에 저장할 때, 로컬 시각 포맷(`YYYY-MM-DD HH:mm`)으로 왜곡 없이 명확하게 저장 및 표출되도록 보장.
-* **마감일자(due_date) & 알림일시(reminder_datetime) 완전 분리 및 어드민 DB 동기화**:
-  - `TaskCreateModal` 모달에서 `<input type="date">`(마감일자)와 `<input type="datetime-local">`(알림일시)를 독립 분리하여 입력 및 수정 시/분 리셋 버그 완전 차단.
-  - 어드민 패널 `DbViewerTab`의 `AgentTasks Table`에 `due_date`(마감 일자)와 `reminder_datetime`(알림 일시) 컬럼을 분리 동기화 표출 및 CSV 엑셀 추출 지원.
-  - UI 카드에 **`🔄 전달 히스토리: 이현우 ➔ 이동헌 ➔ 김상담`** 시각 배지 및 마우스 호버 타임라인 툴팁 표출.
+### 4.5 ⏰ [Option 1] 목표 일시 단일 피커 & 1클릭 미리 알림 옵션 (`TaskCreateModal.tsx` & `dateUtils.ts`)
+* **목표 일시 단일 피커 (`input type="datetime-local"`)**:
+  - 마감 및 목표 일시를 `YYYY-MM-DD HH:mm` 형태로 단일 지정하여 날짜와 시간 입력 중복 피로감 해소.
+* **1클릭 미리 알림 5가지 옵션 선택 피커**:
+  - `[🔔 정각 알림]` / `[⏰ 10분 전]` / `[⏰ 30분 전]` / `[⏰ 1시간 전]` / `[🔕 알림 안함]` 5개 전용 시각 칩 탑재.
+  - 선택한 1클릭 옵션에 따라 실제 팝업이 울릴 알림 시각(`reminder_datetime`)을 `calculateReminderTime` 유틸리티로 자동 계산하여 Supabase DB `agent_tasks.reminder_datetime` (type `text`)에 원본 저장.
+  - 기존 TODO 수정 시 `detectReminderOffset` 유틸리티가 저장된 마감일시와 알림일시의 차이를 계산하여 원래 1클릭 옵션을 100% 선택 상태로 자동 역추산 복원.
 
 ### 4.4 🛡️ 배포 전 다방향 다중 계정 실시간 연동 검증 전략 (Pre-Deployment Verification)
 * **이중 창 라이브 검증 프로토콜**: 일반 창(상담사 A) + 시크릿 창(상담사 B) 동시 접속 후 상담 이관 / TODO 업무 전달 시 1초 내 Realtime 알림 뱃지 및 칸반/캘린더 라이브 동기화 검증.
@@ -212,6 +212,10 @@ ZMS_CS_HELPER/
   3. `CtiFullViewerModal.tsx` [NEW]: STT 대본 라이브 검색 및 1클릭 클립보드 복사를 포함하는 대형 팝업 뷰어 모달 분리.
   4. `CtiRawHtmlModal.tsx` [NEW] & `CtiDiagnosticLogsModal.tsx` [NEW]: Raw HTML 원문 뷰어와 크롤링 단계별 실시간 진단 로그 모달 분리.
 * **결과**: 부모 컴포넌트인 `CtiAudioSummaryModal.tsx` 크기를 1,106줄에서 **281줄**로 75% 대폭 감축 완료.
+
+#### 4.13 ⏰ TODO & 리마인더 Option 1 규격화 및 DB Realtime Publication 최적화 (2026-08-26 완료)
+* **내용**: TODO 마감/목표 일시(datetime-local) + 1클릭 N분 전 미리 알림 버튼(Option 1) 구현 및 Supabase DB `agent_tasks.reminder_datetime` text 타입 규격화 완수.
+* **Realtime Publication 발견 및 조치 계획**: Supabase PostgreSQL의 `supabase_realtime` publication에 `consultations`, `agent_tasks`, `customers`, `internal_agents` 4개 테이블 등록 SQL(`ALTER PUBLICATION supabase_realtime ADD TABLE ...`) 및 `useAppData.ts`(1,002줄), `TaskManagementView.tsx`(612줄)의 500줄 이하 모듈화 구조 설계 완수.
 
 ---
 
