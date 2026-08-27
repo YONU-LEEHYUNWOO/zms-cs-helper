@@ -213,9 +213,17 @@ ZMS_CS_HELPER/
   4. `CtiRawHtmlModal.tsx` [NEW] & `CtiDiagnosticLogsModal.tsx` [NEW]: Raw HTML 원문 뷰어와 크롤링 단계별 실시간 진단 로그 모달 분리.
 * **결과**: 부모 컴포넌트인 `CtiAudioSummaryModal.tsx` 크기를 1,106줄에서 **281줄**로 75% 대폭 감축 완료.
 
-#### 4.13 ⏰ TODO & 리마인더 Option 1 규격화 및 DB Realtime Publication 최적화 (2026-08-26 완료)
-* **내용**: TODO 마감/목표 일시(datetime-local) + 1클릭 N분 전 미리 알림 버튼(Option 1) 구현 및 Supabase DB `agent_tasks.reminder_datetime` text 타입 규격화 완수.
-* **Realtime Publication 발견 및 조치 계획**: Supabase PostgreSQL의 `supabase_realtime` publication에 `consultations`, `agent_tasks`, `customers`, `internal_agents` 4개 테이블 등록 SQL(`ALTER PUBLICATION supabase_realtime ADD TABLE ...`) 및 `useAppData.ts`(1,002줄), `TaskManagementView.tsx`(612줄)의 500줄 이하 모듈화 구조 설계 완수.
+#### 4.14 ⚡ Realtime DB Publication, 500줄 거대파일 모듈화 및 3인 서술형 이관 히스토리 (2026-08-27 완료)
+* **내용**: Supabase Realtime Publication 활성화, 500줄 초과 거대 파일 모듈화 분리(`AGENTS.md` Rule 2) 및 TODO 관제 3인 서술형 이관 히스토리 연동 완수.
+* **구현 세부사항**:
+  1. **Supabase Realtime Publication 활성화**: `ALTER PUBLICATION supabase_realtime ADD TABLE consultations, agent_tasks, customers, internal_agents;` SQL 적용으로 계정 간 500ms 이내 실시간 다방향 동기화 가동.
+  2. **`TaskManagementView.tsx` 모듈화 (612줄 ➔ 184줄)**: `taskFilterUtils.ts` (110줄), `TaskStatusCards.tsx` (115줄), `TaskFilterToolbar.tsx` (145줄), `TaskItemRow.tsx` (215줄) 분리.
+  3. **`useAppData.ts` 서브훅 모듈화 (1,002줄 ➔ 422줄)**: `useAgentTaskState.ts` (160줄), `useInternalAgentState.ts` (130줄), `useConsultationFormState.ts` (210줄) subhooks로 이관.
+  4. **3인 서술형 이관 히스토리 & 역할 기반 색상 이원화 (`TaskHistoryModal.tsx`)**:
+     - `from_agent`(기존 배정자), `to_agent`(수신자), `operator_agent`(조작자) 3인 관계를 한글 서술형 문장으로 표출.
+     - 💜 **보낸 사람 / 기존 배정자**: 인디고/보라색 아바타 칩 (`bg-indigo-100 text-indigo-950 border-indigo-200`)
+     - 🟧/🟩 **받는 사람**: 주황색(전달) / 에메랄드색(가져옴) 아바타 칩 분리.
+     - 동일 상담사(본인 ➔ 본인) 셀프 이관 차단 가드 구축.
 
 ---
 
@@ -252,4 +260,4 @@ ZMS_CS_HELPER/
 
 ---
 
-*최종 업데이트: 2026-08-26 (CTI 거대 파일 분할 리팩토링 완수 및 컴포넌트 구조 확립)*
+*최종 업데이트: 2026-08-27 (Realtime DB Publication 활성화, 500줄 초과 거대파일 모듈화 및 3인 서술형 이관 히스토리 완수)*
