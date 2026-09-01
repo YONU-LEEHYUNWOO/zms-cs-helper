@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Calendar as CalendarIcon,
@@ -14,13 +14,22 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Bell,
 } from 'lucide-react';
 import { InternalAgent } from '../../../backend/types';
+import { Notification } from '../../hooks/useNotifications';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
 
 interface SideNavBarProps {
   activeTab: string;
   setActiveTab: (tab: any) => void;
   currentAgent: InternalAgent | null;
+  notifications?: Notification[];
+  unreadCount?: number;
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
+  onSelectConsultation?: (consId: string) => void;
+  onNavigateToTasks?: () => void;
   onOpenLoginModal: () => void;
   onOpenAgentProfileModal?: () => void;
   onOpenGuideModal?: () => void;
@@ -34,6 +43,12 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
   activeTab,
   setActiveTab,
   currentAgent,
+  notifications = [],
+  unreadCount = 0,
+  onMarkAsRead = () => {},
+  onMarkAllAsRead = () => {},
+  onSelectConsultation,
+  onNavigateToTasks,
   onOpenLoginModal,
   onOpenAgentProfileModal,
   onOpenGuideModal,
@@ -42,6 +57,7 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
   isCollapsed,
   onToggle,
 }) => {
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const agentName = currentAgent?.agent_name || '로그인 필요';
   const teamName = currentAgent?.team_name || '비인증 상태';
 
@@ -161,6 +177,40 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           {!isCollapsed && <span className="animate-in fade-in duration-200">업무 & TODO 관제</span>}
         </button>
 
+        {/* 🔔 사내 알림 센터 (카카오톡 스타일 레드 뱃지 연동) */}
+        <button
+          type="button"
+          onClick={() => setShowNotificationModal(true)}
+          className={`flex items-center rounded-xl transition-all cursor-pointer relative ${
+            isCollapsed ? 'justify-center p-3' : 'px-3.5 py-2.5 gap-3'
+          } ${
+            showNotificationModal
+              ? 'bg-amber-50 text-amber-700 font-bold border border-amber-200 shadow-2xs'
+              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-semibold'
+          }`}
+          title="사내 알림 센터 (미확인 알림)"
+        >
+          <div className="relative flex items-center justify-center">
+            <Bell className="w-4 h-4 shrink-0 text-amber-500" />
+            {isCollapsed && unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white font-mono text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center ring-2 ring-white shadow-xs animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </div>
+
+          {!isCollapsed && (
+            <div className="flex items-center justify-between flex-1 min-w-0 animate-in fade-in duration-200">
+              <span className="truncate">알림 센터</span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white font-mono text-[10px] font-black px-2 py-0.5 rounded-full ring-2 ring-white shadow-xs animate-pulse shrink-0">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('admin')}
@@ -267,6 +317,18 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           {!isCollapsed && <span className="animate-in fade-in duration-200">로그아웃</span>}
         </button>
       </div>
+
+      {/* 🔔 실시간 알림 센터 모달 */}
+      <NotificationCenterModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onMarkAsRead={onMarkAsRead}
+        onMarkAllAsRead={onMarkAllAsRead}
+        onSelectConsultation={onSelectConsultation}
+        onNavigateToTasks={onNavigateToTasks}
+      />
     </aside>
   );
 };

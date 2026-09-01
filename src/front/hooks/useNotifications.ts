@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Consultation, Customer, AgentTask } from '../../backend/types';
 import { maskTempCarNumber, maskTempPhoneNumber } from '../../lib/utils/normalize';
+import { getResolvedStatus } from '../../lib/utils/consultationArchive';
 
 export interface Notification {
   id: string;
@@ -106,22 +107,44 @@ export function useNotifications({
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-    // 기존 동적 알림 항목은 새로 계산하여 갱신 (중복 제거, 기존 읽음 상태 보존)
+    // 기존 보관 알림 로드 및 읽음 ID 세트 추출
     const stored = loadNotifications(currentAgentName);
     const readIds = new Set(stored.filter((n) => n.isRead).map((n) => n.id));
 
-    const baseNotifications = stored.filter(
-      (n) => n.type !== 'in_progress' && n.type !== 'stale' && n.type !== 'task_due' && n.type !== 'task_transferred' && (n.type as string) !== 'dday'
+    // 1. 완료된 상담건 및 완료된 TODO ID 세트 추출 (완료 항목 알림 자동 즉시 제거)
+    const completedConsIds = new Set(
+      consultations
+        .filter((c) => c.status === '완료' || getResolvedStatus(c) === '완료')
+        .map((c) => c.id)
     );
+    const completedTaskIds = new Set(
+      tasks.filter((t) => t.is_completed).map((t) => t.id)
+    );
+
+    // 기존 보관된 알림 중 완료 처리된 건 및 'dday'(주차 시작일) 타입 전면 제거
+    const baseNotifications = stored.filter((n) => {
+      if (n.consultationId && completedConsIds.has(n.consultationId)) return false;
+      if (n.taskId && completedTaskIds.has(n.taskId)) return false;
+      if ((n.type as string) === 'dday') return false;
+      if (
+        n.type === 'in_progress' ||
+        n.type === 'stale' ||
+        n.type === 'task_due' ||
+        n.type === 'task_transferred'
+      ) {
+        return false;
+      }
+      return true;
+    });
 
     const newNotifications: Notification[] = [...baseNotifications];
 
-    // 1. 내 담당 상담건 알림 계산 (현재 로그인/배정된 상담사 전용)
-    const myConsultations = consultations.filter(
-      (c) => c.agent_name === currentAgentName
+    // 2. 내 담당 비완료 상담건 알림 계산 (현재 로그인/배정된 상담사 전용)
+    const myActiveConsultations = consultations.filter(
+      (c) => c.agent_name === currentAgentName && c.status !== '완료' && getResolvedStatus(c) !== '완료'
     );
 
-    myConsultations.forEach((c) => {
+    myActiveConsultations.forEach((c) => {
       const customer = customers.find((cust) => cust.id === c.customer_id);
       const rawPhone = customer?.phone_number || c.phone_number;
       const rawCar = customer?.car_number || c.car_number;
@@ -174,36 +197,9 @@ export function useNotifications({
           });
         }
       }
-
-      // 희망 주차 시작일(parking_start_date) D-Day / D-1 알림 (hope_date 기본값 바인딩 차단으로 잘못된 D-Day 알림 완전 해소)
-      const targetDateStr = c.parking_start_date;
-      if (targetDateStr && c.status !== '완료') {
-        const cleanTargetStr = targetDateStr.slice(0, 10);
-        const todayStr = new Date().toISOString().slice(0, 10);
-
-        if (cleanTargetStr) {
-          const targetTime = new Date(cleanTargetStr).getTime();
-          const todayTime = new Date(todayStr).getTime();
-          const diffDays = Math.round((targetTime - todayTime) / (1000 * 60 * 60 * 24));
-
-          if (diffDays === 0 || diffDays === 1) {
-            const ddayLabel = diffDays === 0 ? 'D-Day (오늘)' : 'D-1 (내일)';
-            const notifId = `dday-${c.id}`;
-            newNotifications.push({
-              id: notifId,
-              type: 'dday',
-              title: `📅 [주차 시작일 ${ddayLabel}] 알림`,
-              body: `[${displayName}${carNumber ? ' / ' + carNumber : ''}] 님의 희망 주차 시작일이 ${ddayLabel}입니다.`,
-              consultationId: c.id,
-              isRead: readIds.has(notifId),
-              createdAt: new Date().toISOString(),
-            });
-          }
-        }
-      }
     });
 
-    // 2. 내 담당 Task/TODO 알림 계산 (현재 로그인/배정된 상담사 전용)
+    // 3. 내 담당 미완료 Task/TODO 알림 계산 (현재 로그인/배정된 상담사 전용)
     const myPendingTasks = tasks.filter(
       (t) => t.agent_name === currentAgentName && !t.is_completed
     );

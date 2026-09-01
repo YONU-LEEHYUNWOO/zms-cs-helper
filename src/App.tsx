@@ -25,6 +25,8 @@ import { LoginModal } from './front/components/auth/LoginModal';
 import { AgentProfileModal } from './front/components/auth/AgentProfileModal';
 import { ServiceUserGuideModal } from './front/components/support/ServiceUserGuideModal';
 
+import { useNotifications } from './front/hooks/useNotifications';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<
     'workspace' | 'calendar' | 'kanban' | 'tasks' | 'admin' | 'logs' | 'support'
@@ -47,12 +49,29 @@ export default function App() {
   // 모든 상태와 비즈니스 핸들러는 커스텀 훅이 담당 (500라인 최적화 달성!)
   const appData = useAppData(currentAgent, currentAgentName);
 
+  // 🔔 사내 알림 관제 단일 원본 훅
+  const notifState = useNotifications({
+    consultations: appData.allConsultations,
+    customers: appData.customers,
+    tasks: appData.tasks,
+    currentAgentName: currentAgentName,
+  });
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans antialiased overflow-hidden">
       <SideNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentAgent={currentAgent}
+        notifications={notifState.notifications}
+        unreadCount={notifState.unreadCount}
+        onMarkAsRead={notifState.markAsRead}
+        onMarkAllAsRead={notifState.markAllAsRead}
+        onSelectConsultation={(consId) => {
+          appData.handleSelectConsultation(consId);
+          setActiveTab('workspace');
+        }}
+        onNavigateToTasks={() => setActiveTab('tasks')}
         onResetForm={appData.handleResetForm}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         onOpenAgentProfileModal={() => setIsAgentProfileModalOpen(true)}
@@ -75,6 +94,10 @@ export default function App() {
           agents={appData.agents}
           currentAgent={currentAgent}
           tasks={appData.tasks}
+          notifications={notifState.notifications}
+          unreadCount={notifState.unreadCount}
+          onMarkAsRead={notifState.markAsRead}
+          onMarkAllAsRead={notifState.markAllAsRead}
           onOpenLoginModal={() => setIsLoginModalOpen(true)}
           onLogout={() => {
             signOut();

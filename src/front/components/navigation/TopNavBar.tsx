@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Customer, Consultation, InternalAgent, AgentTask } from '../../../backend/types';
 import { useClickOutside } from '../../hooks/useClickOutside';
-import { useNotifications } from '../../hooks/useNotifications';
+import { Notification, useNotifications } from '../../hooks/useNotifications';
 import { getSubStatusBadgeStyle, formatSubStatus, getInquiryTypeBadgeStyle } from '../../../lib/utils/consultationArchive';
 import { maskTempCarNumber, maskTempPhoneNumber, isTempCarNumber, isTempPhoneNumber } from '../../../lib/utils/normalize';
 
@@ -36,6 +36,10 @@ interface TopNavBarProps {
   agents: InternalAgent[];
   currentAgent: InternalAgent | null;
   tasks?: AgentTask[];
+  notifications?: Notification[];
+  unreadCount?: number;
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
   onOpenLoginModal: () => void;
   onLogout: () => void;
   onSelectCustomer: (customer: Customer) => void;
@@ -52,6 +56,10 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   agents,
   currentAgent,
   tasks = [],
+  notifications: passedNotifications,
+  unreadCount: passedUnreadCount,
+  onMarkAsRead: passedMarkAsRead,
+  onMarkAllAsRead: passedMarkAllAsRead,
   onOpenLoginModal,
   onLogout,
   onSelectCustomer,
@@ -72,12 +80,17 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
   const currentAgentName = currentAgent?.agent_name || '상담원';
 
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications({
+  const fallbackNotifState = useNotifications({
     consultations,
     customers,
     tasks,
     currentAgentName: currentAgent?.agent_name || '',
   });
+
+  const notifications = passedNotifications ?? fallbackNotifState.notifications;
+  const unreadCount = passedUnreadCount ?? fallbackNotifState.unreadCount;
+  const markAsRead = passedMarkAsRead ?? fallbackNotifState.markAsRead;
+  const markAllAsRead = passedMarkAllAsRead ?? fallbackNotifState.markAllAsRead;
 
   const pendingNotifications = notifications.filter((n) => !n.isRead);
   const completedNotifications = notifications.filter((n) => n.isRead);
