@@ -117,18 +117,29 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
   * 🟧/🟩 **받는 사람**: 주황색(전달) / 에메랄드색(가져옴) 아바타 칩 분리.
   * 동일 상담사(본인 ➔ 본인) 셀프 이관 차단 팝업 구축 및 DB 무의미 데이터 방지.
 
+### 2-24. 🔴 좌측 사이드바 카카오톡 스타일 알림 뱃지 & Supabase DB 알림 정제 (2026-09-01 완료)
+* **🔴 좌측 사이드바 알림 센터 & 카카오톡 스타일 레드 뱃지 (`SideNavBar.tsx`)**:
+  * 메뉴 항목 `🔔 알림 센터` 탑재 및 미확인 알림 수에 따른 **레드 뱃지 칩(`[N]` 카운터 + 펄스 애니메이션)** 표출.
+  * 메뉴 접힘 모드(`isCollapsed`)에서도 벨 아이콘 우측 상단 중첩 표출 (카카오톡 채널 뱃지 디자인과 동일).
+* **알림 관제 전용 팝업 모달 (`NotificationCenterModal.tsx` - 168줄)**: Rule 8 (모달 백드롭 디스미스) 및 Rule 2 (500줄 제한) 준수. 알림 클릭 시 해당 상담/TODO 페이지로 1초 만에 스마트 뷰 스위칭.
+* **🧹 완료 항목 자동 정제 & 주차 시작일 알림 삭제 (`useNotifications.ts`)**:
+  * 완료된 상담건(`status === '완료'` 또는 `sub_status`가 `'결제완료'`/`'처리완료'`) 및 완료된 TODO 항목(`is_completed: true`)을 알림 목록에서 자동 즉시 정제 및 제외.
+  * `parking_start_date` D-Day / D-1 알림 로직 전면 삭제.
+  * 100% live Supabase DB 객체 기반 동적 알림 산출.
+* **🔗 알림 상태 단일 원본 관리 (`App.tsx`)**: `useNotifications` 훅을 최상위로 이관하여 좌측 사이드바(`SideNavBar`)와 상단 네비바(`TopNavBar`)가 동일한 알림 상태와 카운터를 실시간 공유.
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 & 다음 에이전트 개발 로드맵 (Immediate Tasks for Next Agent)
 
 ### 3-1. 📞 다중 상담원 CTI 실시간 수신 상태 공유 & 내선 팝업 (Phase 1.6)
-* **목적**: 사내 CTI 전용 내선 서버와 연동하여, 현재 어떤 상담원이 고객과 통화 중인지(`통화 중`, `대기 중`, `부재 중`) 실시간 공유 관제.
-* **구현 가이드**: `useCtiCollector.ts` 훅과 Realtime WebSocket 채널을 활용하여 `internal_agents.agent_status` 및 내선 연동 팝업 구현.
+* **목적**: 사내 CTI 전용 내선 서버와 연동하여, 현재 어떤 상담원이 고객과 통화 중인지(`통화 중`, `업무 가능`, `자리 비움`) 계정 간 <500ms 이내 실시간 공유 관제.
+* **구현 가이드**: `internal_agents.agent_status` 컬럼을 Supabase Realtime으로 브로드캐스팅하고 CTI 통화 시작/종료 시 상태를 자동 업데이트하는 팝업/인디케이터 구현.
 
-### 3-2. 💳 상담 처리 진척도 소분류 (`sub_status`) 자동 연동 고도화 (Phase 1.7)
-* **목적**: `sub_status`('결제완료', '환불처리중', '공유자확인필요') 입력 시 `consultations.status` 대분류가 자동 동기화되도록 `ConsultationRepositoryImpl` 및 워크스페이스 스텝퍼 추가 보강.
+### 3-2. 💳 상담 처리 진척도 소분류 (`sub_status`) status 무결성 자동 동기화 보강 (Phase 1.7)
+* **목적**: `ConsultationRepositoryImpl.ts`에서 상담 데이터 저장(`saveConsultation`) 시 `sub_status` 기준 `status` 자동 일치 가드를 엄격히 보강 (Rule 5.1).
 
-### 3-3. 📱 알림톡 / SMS 고객자동발송 & 알림 이원화 (Phase 2.0)
+### 3-3. 📱 카카오 알림톡 / SMS 고객 자동 발송 API 연동 (Phase 2.0)
 * **목적**: 상담원이 `[문자 발송]` 또는 `[상용구 전송]` 버튼 클릭 시 알림톡 API(카카오 알림톡/Twilio)와 연동하여 고객 핸드폰으로 자동 안내 템플릿 문자 발송.
 
 ---
@@ -149,18 +160,19 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 | TODO 항목 렌더링 행 | `src/front/components/tasks/components/TaskItemRow.tsx` | **TODO 체크박스, 이관 경로 배지 (`작성: X ➔ 담당: Y`), 이관 드롭다운** |
 | 3인 서술형 이관 히스토리 | `src/front/components/tasks/components/TaskHistoryModal.tsx` | **💜 보낸 사람(보라) ➔ 🟧/🟩 받는 사람 역할 기반 색상 차별화 3인 타임라인 모달** |
 | 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 모듈화 하위 컴포넌트 조립 메인 전용 관제 컴포넌트 (184줄) |
+| 좌측 사이드바 | `src/front/components/navigation/SideNavBar.tsx` | **🔔 알림 센터 버튼 및 카카오톡 스타일 레드 뱃지 연동** |
+| 알림 관제 전용 모달 | `src/front/components/navigation/components/NotificationCenterModal.tsx` | **Rule 8 백드롭 디스미스 적용 알림 관제 모달 (168줄)** |
 | 탑바 & 알림/계정 드롭다운 | `src/front/components/navigation/TopNavBar.tsx` | **계정 프로필 단일화, 미확인/확인 서브 탭 분류, 🔔 알림 펄스 애니메이션** |
-| 좌측 사이드바 | `src/front/components/navigation/LeftSidebar.tsx` | 메인 서브 메뉴 내비게이션, 하단 내 프로필 & 어드민 가입 모달 |
 | 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
 | CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석 (281줄 경량화)** |
 | CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
 | CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출**, CTI 키워드/유형 필터 |
 | CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅** |
 | 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드, 전달 히스토리** |
-| 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, `sub_status` 스마트 리마인드 알림, 사내 계정 간 다방향 실시간 동기화 |
+| 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, 완료 항목 자동 정제, D-Day 삭제, 100% DB 기반 실시간 동기화 |
 | 전역 마스킹 유틸리티 | `src/lib/utils/normalize.ts` | 임시 우회 식별자(`no-car-`, `no-phone-`) UI 마스킹 및 전화번호 표준화 |
 
 ---
 
-*최종 업데이트: 2026-08-27 (Supabase Realtime Publication 활성화, 500줄 초과 거대파일 모듈화, 3인 서술형 이관 히스토리 및 역할기반 색상시스템 완성) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-09-01 (사이드바 카카오톡 스타일 알림 뱃지, 100% DB 동적 알림, 완료 항목 자동 정제 및 차세대 로드맵 반영) / 담당 AI: Antigravity*
 
