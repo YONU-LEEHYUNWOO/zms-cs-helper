@@ -268,6 +268,14 @@ export const useCtiCollector = ({
           };
         });
 
+        // 🚀 최신순 정렬 (통화일시 callDateStr 내림차순, 동률 시 callIdx 내림차순)
+        mapped.sort((a, b) => {
+          const timeA = new Date(a.callDateStr.replace(/-/g, '/')).getTime() || 0;
+          const timeB = new Date(b.callDateStr.replace(/-/g, '/')).getTime() || 0;
+          if (timeB !== timeA) return timeB - timeA;
+          return Number(b.callIdx) - Number(a.callIdx);
+        });
+
         setFetchedRecords(mapped);
         if (mapped.length > 0) {
           setSelectedRecordIdx(mapped[0].callIdx);

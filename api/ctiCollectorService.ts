@@ -243,6 +243,14 @@ export class CtiCollectorService {
 
     logs.push(`✅ [4단계 파싱 완료] CTI 수신 데이터 정밀 파싱 결과: 총 ${records.length}건 수집 완료`);
 
+    // 4.5단계: 통화일시(callDateStr) 및 callIdx 기준 최신순(내림차순) 정렬 (최근 통화가 상단 표출)
+    records.sort((a, b) => {
+      const timeA = new Date(a.callDateStr.replace(/-/g, '/')).getTime() || 0;
+      const timeB = new Date(b.callDateStr.replace(/-/g, '/')).getTime() || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return Number(b.callIdx) - Number(a.callIdx);
+    });
+
     // 내선 필터 적용
     if (records.length > 0 && cleanMemberExt) {
       const filtered = records.filter(r => r.memberPhone.replace(/[^0-9]/g, '').endsWith(cleanMemberExt));
