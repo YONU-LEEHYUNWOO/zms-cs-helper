@@ -128,6 +128,17 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
   * 100% live Supabase DB 객체 기반 동적 알림 산출.
 * **🔗 알림 상태 단일 원본 관리 (`App.tsx`)**: `useNotifications` 훅을 최상위로 이관하여 좌측 사이드바(`SideNavBar`)와 상단 네비바(`TopNavBar`)가 동일한 알림 상태와 카운터를 실시간 공유.
 
+### 2-25. 🔐 CTI/Gemini 계정별 자격증명 격리 완성 & 보안 감사 (2026-09-02 완료)
+* **CTI 자격증명 계정별 완전 격리 (`useCtiCollector.ts`)**:
+  * 기존 고정 키(`cti_user_id`, `cti_user_pw`, `cti_session_cookie`, `cti_extension`)를 **`cti_user_id_${agentName}`** 형태의 계정별 격리 키로 전환.
+  * `getCtiKey(base)` 헬퍼 유틸 도입으로 모든 CTI localStorage 저장/읽기/로그인 성공 자동 저장 등 5개 지점 일괄 적용.
+  * 모달이 열릴 때(`isOpen`) useEffect에서 현재 로그인 계정의 CTI 자격증명으로 **즉시 자동 동기화** 구현 → 같은 컴퓨터에서 계정 전환 시 CTI 정보 혼용 완전 차단.
+* **Gemini API Key 격리 확인**: `gemini_api_key_${agentName}` 패턴으로 이미 격리 완료 상태임을 전체 코드 점검으로 재확인 (`getStoredGeminiApiKey`, `setStoredGeminiApiKey` 5개 호출 지점 모두 `agentName` 정상 전달).
+* **Supabase Realtime 4채널 정상 가동 점검 완료**:
+  * `public:consultations`, `public:agent_tasks_sync_repo`, `public:customers_sync`, `public:consultation_locks` 채널 모두 정상.
+  * 상담 이관, 업무 전달, 담당 가져오기, 편집 락 브로드캐스트 전 기능 코드 레벨 검증 완료.
+* **Supabase 이메일 인증 OFF 확인**: Supabase Auth 설정에서 `Confirm email` 토글이 이미 OFF 상태로 신규 상담사 즉시 로그인 가능 상태 유지.
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 & 다음 에이전트 개발 로드맵 (Immediate Tasks for Next Agent)
@@ -167,12 +178,12 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 | CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석 (281줄 경량화)** |
 | CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
 | CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출**, CTI 키워드/유형 필터 |
-| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅** |
+| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅. 계정별 CTI 자격증명 격리 (`getCtiKey`) 적용** |
 | 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드, 전달 히스토리** |
 | 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, 완료 항목 자동 정제, D-Day 삭제, 100% DB 기반 실시간 동기화 |
 | 전역 마스킹 유틸리티 | `src/lib/utils/normalize.ts` | 임시 우회 식별자(`no-car-`, `no-phone-`) UI 마스킹 및 전화번호 표준화 |
 
 ---
 
-*최종 업데이트: 2026-09-01 (사이드바 카카오톡 스타일 알림 뱃지, 100% DB 동적 알림, 완료 항목 자동 정제 및 차세대 로드맵 반영) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-09-02 (사이드바 카카오톡 스타일 알림 뱃지, CTI/Gemini 계정별 자격증명 완전 격리 완성, Supabase Realtime 4채널 전체 검증 완료) / 담당 AI: Antigravity*
 

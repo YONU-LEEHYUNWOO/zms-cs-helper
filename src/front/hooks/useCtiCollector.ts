@@ -27,10 +27,12 @@ export const useCtiCollector = ({
 }: UseCtiCollectorProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [phoneInput, setPhoneInput] = useState<string>('');
-  const [extensionInput, setExtensionInput] = useState<string>(() => localStorage.getItem('cti_extension') || '');
-  const [ctiUserIdInput, setCtiUserIdInput] = useState<string>(() => localStorage.getItem('cti_user_id') || 'arsparking');
-  const [ctiUserPwInput, setCtiUserPwInput] = useState<string>(() => localStorage.getItem('cti_user_pw') || 'arsparking');
-  const [ctiSessionCookieInput, setCtiSessionCookieInput] = useState<string>(() => localStorage.getItem('cti_session_cookie') || '');
+  // 계정별 CTI 자격증명 격리 키 생성 유틸 (agentName 기반)
+  const getCtiKey = (base: string) => agentName ? `${base}_${agentName}` : base;
+  const [extensionInput, setExtensionInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_extension_${agentName}` : 'cti_extension') || '');
+  const [ctiUserIdInput, setCtiUserIdInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_user_id_${agentName}` : 'cti_user_id') || '');
+  const [ctiUserPwInput, setCtiUserPwInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_user_pw_${agentName}` : 'cti_user_pw') || '');
+  const [ctiSessionCookieInput, setCtiSessionCookieInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_session_cookie_${agentName}` : 'cti_session_cookie') || '');
   const [isTestingLogin, setIsTestingLogin] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getStoredGeminiApiKey(agentName));
@@ -78,7 +80,7 @@ export const useCtiCollector = ({
   // AI CS 분석 모드 설정 ('metadata': 기본 CS 5줄 요약, 'stt': 상세 STT 및 오디오 분석)
   const [analysisMode, setAnalysisMode] = useState<'metadata' | 'stt'>('metadata');
 
-  // 고객 전화번호 전달 시 100% 자동 프리필 (Pre-fill) 및 상담사 계정별 API Key 동기화
+  // 고객 전화번호 전달 시 100% 자동 프리필 (Pre-fill) 및 상담사 계정별 API Key / CTI 자격증명 동기화
   useEffect(() => {
     if (isOpen) {
       const clean = (customerPhone || '').replace(/[^0-9]/g, '');
@@ -90,17 +92,22 @@ export const useCtiCollector = ({
             : clean;
         setPhoneInput(formatted);
       }
+      // 계정 전환 시 해당 계정의 저장된 CTI 자격증명으로 즉시 동기화
       setApiKeyInput(getStoredGeminiApiKey(agentName));
+      setExtensionInput(localStorage.getItem(getCtiKey('cti_extension')) || '');
+      setCtiUserIdInput(localStorage.getItem(getCtiKey('cti_user_id')) || '');
+      setCtiUserPwInput(localStorage.getItem(getCtiKey('cti_user_pw')) || '');
+      setCtiSessionCookieInput(localStorage.getItem(getCtiKey('cti_session_cookie')) || '');
     }
   }, [isOpen, customerPhone, agentName]);
 
-  // CTI 계정 정보 보관
+  // CTI 계정 정보 보관 (계정별 격리 저장)
   const handleSaveCtiSettings = () => {
-    localStorage.setItem('cti_extension', extensionInput.trim());
-    localStorage.setItem('cti_user_id', ctiUserIdInput.trim());
-    localStorage.setItem('cti_user_pw', ctiUserPwInput.trim());
-    localStorage.setItem('cti_session_cookie', ctiSessionCookieInput.trim());
-    setToastMessage('✅ CTI 계정 및 세션 쿠키 정보가 로컬 세션에 저장되었습니다.');
+    localStorage.setItem(getCtiKey('cti_extension'), extensionInput.trim());
+    localStorage.setItem(getCtiKey('cti_user_id'), ctiUserIdInput.trim());
+    localStorage.setItem(getCtiKey('cti_user_pw'), ctiUserPwInput.trim());
+    localStorage.setItem(getCtiKey('cti_session_cookie'), ctiSessionCookieInput.trim());
+    setToastMessage('✅ CTI 계정 및 세션 쿠키 정보가 내 계정 전용으로 저장되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -137,9 +144,10 @@ export const useCtiCollector = ({
 
       if (data.success && data.cookie) {
         setCtiSessionCookieInput(data.cookie);
-        localStorage.setItem('cti_session_cookie', data.cookie);
-        localStorage.setItem('cti_user_id', ctiUserIdInput.trim());
-        localStorage.setItem('cti_user_pw', ctiUserPwInput.trim());
+        // 로그인 성공 시 계정별 격리 키로 세션 쿠키 자동 저장
+        localStorage.setItem(getCtiKey('cti_session_cookie'), data.cookie);
+        localStorage.setItem(getCtiKey('cti_user_id'), ctiUserIdInput.trim());
+        localStorage.setItem(getCtiKey('cti_user_pw'), ctiUserPwInput.trim());
         setToastMessage(`✅ CTI 세션 쿠키 승인 성공! (${data.cookie})`);
       } else {
         setToastMessage(data.message || '❌ CTI 서버 로그인 인증에 실패했습니다.');
@@ -161,10 +169,11 @@ export const useCtiCollector = ({
       return;
     }
 
-    localStorage.setItem('cti_extension', extensionInput.trim());
-    localStorage.setItem('cti_user_id', ctiUserIdInput.trim());
-    localStorage.setItem('cti_user_pw', ctiUserPwInput.trim());
-    localStorage.setItem('cti_session_cookie', ctiSessionCookieInput.trim());
+    // 검색 실행 시에도 계정별 격리 키로 자동 저장
+    localStorage.setItem(getCtiKey('cti_extension'), extensionInput.trim());
+    localStorage.setItem(getCtiKey('cti_user_id'), ctiUserIdInput.trim());
+    localStorage.setItem(getCtiKey('cti_user_pw'), ctiUserPwInput.trim());
+    localStorage.setItem(getCtiKey('cti_session_cookie'), ctiSessionCookieInput.trim());
 
     setIsSearchingList(true);
     setToastMessage(null);

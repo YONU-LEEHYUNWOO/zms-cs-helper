@@ -271,4 +271,105 @@ ZMS_CS_HELPER/
 
 ---
 
-*최종 업데이트: 2026-09-01 (좌측 사이드바 카카오톡 스타일 알림 뱃지, 100% DB 동적 알림 및 완료 항목 자동 정제 완수)*
+## 6. ⚡ 2026-09-02 아키텍처 업데이트
+
+### 6.1 ⚡ Supabase Realtime Publication 활성화 (계정 간 실시간 WebSocket 동기화)
+- `ALTER PUBLICATION supabase_realtime ADD TABLE consultations, agent_tasks, customers, internal_agents;` 완료.
+- 상담/TODO/고객/상담원 4개 핵심 테이블의 PostgreSQL WAL 방송 활성화 → 계정 간 500ms 이내 실시간 동기화.
+
+### 6.2 🧹 500줄 모듈화 가이드 (`AGENTS.md` Rule 2)
+- `useAppData.ts` (1,002줄 ➔ 422줄): `useConsultationFormState.ts`, `useAgentTaskState.ts`, `useInternalAgentState.ts` 분리.
+- `TaskManagementView.tsx` (612줄 ➔ 221줄): `taskFilterUtils.ts`, `TaskStatusCards.tsx`, `TaskFilterToolbar.tsx`, `TaskItemRow.tsx` 분리.
+
+### 6.3 🔐 CTI/Gemini 계정별 자격증명 격리 패턴 확립 (2026-09-02)
+
+#### CTI localStorage 계정 격리 구조 (`useCtiCollector.ts`)
+```ts
+// 계정별 격리 키 생성 헬퍼
+const getCtiKey = (base: string) => agentName ? `${base}_${agentName}` : base;
+
+// 읽기
+localStorage.getItem(getCtiKey('cti_user_id'))    // "cti_user_id_이현우"
+localStorage.getItem(getCtiKey('cti_user_pw'))    // "cti_user_pw_이현우"
+localStorage.getItem(getCtiKey('cti_session_cookie'))
+localStorage.getItem(getCtiKey('cti_extension'))
+
+// 저장
+localStorage.setItem(getCtiKey('cti_user_id'), value)
+```
+
+#### Gemini API Key 계정 격리 패턴 (`geminiApi.ts`) — 이미 완성
+```ts
+// 계정별 독립 키
+'gemini_api_key_이현우'  // A계정
+'gemini_api_key_김영희'  // B계정
+// → getStoredGeminiApiKey(agentName) / setStoredGeminiApiKey(key, agentName)
+```
+
+> **규칙**: 새 AI 에이전트가 CTI/Gemini 저장 로직 수정 시 반드시 `agentName`을 전달하고 `getCtiKey()` 패턴을 사용해야 합니다.
+
+---
+
+## 7. 🤖 AI 에이전트 인수인계 전략 (Agent Handover Protocol)
+
+> **핵심 문제**: 대화가 초기화되거나 다른 모델/계정을 사용할 때 다음 에이전트가 중복 코드 생성 및 아키텍처 파괴 없이 즉시 작업을 이어받는 방법.
+
+### 7.1 차세대 에이전트가 가장 먼저 해야 할 일 (5분 체크리스트)
+
+```
+[ ] 1. AGENTS.md 읽기          → 기술 스택, 금지 사항, 개발 규칙 파악
+[ ] 2. DEVELOPMENT_GUIDE.md 읽기 → DB 스키마, 저장 철칙, 핵심 패턴 파악
+[ ] 3. PROJECT_ROADMAP.md 읽기   → 최신 완료 기능 + 다음 과제 파악
+[ ] 4. npx tsc --noEmit 실행     → 현재 컴파일 오류 없는지 확인
+[ ] 5. 사용자 보고된 문제 재확인 후 작업 시작
+```
+
+### 7.2 절대 하면 안 되는 것 (Anti-Pattern)
+
+| 금지 사항 | 이유 |
+|-----------|------|
+| `src/components/` 생성 | `src/front/components/`와 중복 |
+| `src/lib/services/` 생성 | `src/backend/services/`와 중복 |
+| `is_archived`, `agent_id`, `car_number` consultations upsert에 포함 | DB에 없는 컬럼 → 400 오류 |
+| `'미입력'`, `'미등록'` 고정 문자열 customers에 저장 | UNIQUE 충돌 23505 오류 |
+| CTI/Gemini 저장 시 `agentName` 없이 고정 키 사용 | 계정 간 자격증명 노출 |
+| 500줄 초과 파일 그대로 유지 | AGENTS.md Rule 2 위반 |
+
+### 7.3 프로젝트 핵심 지식 Quick Reference
+
+```
+프로젝트 ref:  jqtdlqisyzglfqhcisrj
+Vercel URL:    https://zms-cs-helper.vercel.app
+GitHub repo:   YONU-LEEHYUNWOO/zms-cs-helper
+
+로그인 데이터 흐름:
+  Supabase Auth.signIn
+  → internal_agents 테이블에서 해당 상담사 정보 로드
+  → AuthContext.currentAgent / currentAgentName 설정
+  → useAppData / subhooks 전체 실행
+
+핵심 엔트리포인트:
+  관리자 판단 로직  → AgentProfileModal.tsx L40~50
+  새 에이전트 생성  → useInternalAgentState.ts (supabase.auth.signUp)
+  상담 저장        → ConsultationRepositoryImpl.ts.saveConsultation()
+  업무 이관        → AgentTaskRepositoryImpl.ts.reassignTask()
+  실시간 동기화    → subscribeConsultationRealtime() / subscribeRealtime()
+```
+
+### 7.4 다음 에이전트에게 전달할 프롬프트 템플릿
+
+```
+나는 ZMS CS Helper 프로젝트를 개발하고 있어.
+먼저 AGENTS.md, DEVELOPMENT_GUIDE.md, PROJECT_ROADMAP.md 읽어서
+프로젝트 전체 구조를 파악한 다음
+[{---구체적인 작업 지시---}]를 시작해줘.
+
+- 기술 스택: React 18 + Vite + TypeScript + TailwindCSS + Supabase
+- 프론트엔드: src/front/, 백엔드: src/backend/
+- 별도 Node 서버 없음 – Vercel 서버리스 + Supabase BaaS
+- 가장 중요: 중복 폴더/코드 생성 금지, 500줄 제한, 한글 주석, AGENTS.md 전 규칙 준수
+```
+
+---
+
+*최종 업데이트: 2026-09-02 (CTI/Gemini 계정별 자격증명 격리 패턴 확립, AI 에이전트 인수인계 전략 7섹션 신설)*
