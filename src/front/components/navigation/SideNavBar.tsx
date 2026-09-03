@@ -19,6 +19,7 @@ import {
 import { InternalAgent } from '../../../backend/types';
 import { Notification } from '../../hooks/useNotifications';
 import { NotificationCenterModal } from './components/NotificationCenterModal';
+import { isAdminAgent } from '../../../lib/utils/adminUtils';
 
 interface SideNavBarProps {
   activeTab: string;
@@ -211,21 +212,24 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('admin')}
-          className={`flex items-center rounded-xl transition-all cursor-pointer ${
-            isCollapsed ? 'justify-center p-3' : 'px-3.5 py-2.5 gap-3'
-          } ${
-            activeTab === 'admin'
-              ? 'bg-blue-50 text-blue-600 font-bold border border-blue-100 shadow-2xs'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-          title="데이터 마스터 관리자"
-        >
-          <ShieldCheck className="w-4 h-4 shrink-0" />
-          {!isCollapsed && <span className="animate-in fade-in duration-200">데이터 마스터 관리자</span>}
-        </button>
+        {/* 🛡️ 데이터 마스터 관리자 (어드민 계정 전용) */}
+        {isAdminAgent(currentAgent) && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('admin')}
+            className={`flex items-center rounded-xl transition-all cursor-pointer ${
+              isCollapsed ? 'justify-center p-3' : 'px-3.5 py-2.5 gap-3'
+            } ${
+              activeTab === 'admin'
+                ? 'bg-blue-50 text-blue-600 font-bold border border-blue-100 shadow-2xs'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+            title="데이터 마스터 관리자 (어드민 전용)"
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600" />
+            {!isCollapsed && <span className="animate-in fade-in duration-200">데이터 마스터 관리자</span>}
+          </button>
+        )}
 
         <button
           type="button"

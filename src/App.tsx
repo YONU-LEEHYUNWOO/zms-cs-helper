@@ -26,6 +26,7 @@ import { AgentProfileModal } from './front/components/auth/AgentProfileModal';
 import { ServiceUserGuideModal } from './front/components/support/ServiceUserGuideModal';
 
 import { useNotifications } from './front/hooks/useNotifications';
+import { isAdminAgent } from './lib/utils/adminUtils';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
@@ -216,27 +217,48 @@ export default function App() {
           )}
 
           {activeTab === 'admin' && (
-            <AdminPanel
-              agents={appData.agents}
-              templates={appData.templates}
-              customers={appData.customers}
-              consultations={appData.showOlderArchive ? appData.allConsultations : appData.consultations}
-              tasks={appData.tasks}
-              currentAgentName={currentAgentName}
-              showOlderArchive={appData.showOlderArchive}
-              olderArchiveCount={appData.olderArchiveCount}
-              toggleShowOlderArchive={appData.toggleShowOlderArchive}
-              onAddAgent={appData.handleAddAgent}
-              onToggleAgentStatus={appData.handleToggleAgentStatus}
-              onDeleteAgent={appData.handleDeleteAgent}
-              onAddTemplate={appData.handleAddTemplate}
-              onEditTemplate={appData.handleEditTemplate}
-              onDeleteTemplate={appData.handleDeleteTemplate}
-              onToggleBlacklist={appData.handleToggleBlacklist}
-              onDeleteConsultation={appData.handleDeleteConsultation}
-              onDeleteCustomer={appData.handleDeleteCustomer}
-              onDeleteTask={appData.handleDeleteTask}
-            />
+            isAdminAgent(currentAgent) ? (
+              <AdminPanel
+                agents={appData.agents}
+                templates={appData.templates}
+                customers={appData.customers}
+                consultations={appData.showOlderArchive ? appData.allConsultations : appData.consultations}
+                tasks={appData.tasks}
+                currentAgentName={currentAgentName}
+                showOlderArchive={appData.showOlderArchive}
+                olderArchiveCount={appData.olderArchiveCount}
+                toggleShowOlderArchive={appData.toggleShowOlderArchive}
+                onAddAgent={appData.handleAddAgent}
+                onToggleAgentStatus={appData.handleToggleAgentStatus}
+                onDeleteAgent={appData.handleDeleteAgent}
+                onAddTemplate={appData.handleAddTemplate}
+                onEditTemplate={appData.handleEditTemplate}
+                onDeleteTemplate={appData.handleDeleteTemplate}
+                onToggleBlacklist={appData.handleToggleBlacklist}
+                onDeleteConsultation={appData.handleDeleteConsultation}
+                onDeleteCustomer={appData.handleDeleteCustomer}
+                onDeleteTask={appData.handleDeleteTask}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 min-h-screen">
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-md max-w-md w-full flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
+                    <span className="text-2xl font-black">🔒</span>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 mb-2">어드민 전용 데이터 마스터</h2>
+                  <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                    데이터 마스터 관리자는 최고 관리자(ADMIN) 권한으로 등록된 상담사 계정만 접근하실 수 있습니다.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('workspace')}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer"
+                  >
+                    상담 워크스페이스로 이동
+                  </button>
+                </div>
+              </div>
+            )
           )}
 
           {activeTab === 'logs' && (

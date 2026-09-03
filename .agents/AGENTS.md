@@ -16,7 +16,7 @@
 ## 0-0. 🚨 [필수] 모든 AI 에이전트 세션 시작 시 1단계 의무 이행 수칙 (Mandatory Initialization)
 **모든 AI 에이전트/모델은 사용자의 새로운 대화 세션이나 첫 요청을 받는 즉시 아래 3단계를 가장 먼저 수행해야 합니다.**
 
-1. **가이드 문서 실시간 조회**: 프로젝트 루트의 `DEVELOPMENT_GUIDE.md`와 `PROJECT_ROADMAP.md`를 `view_file` 도구로 즉시 조회하여 최신 아키텍처 및 작업 현황을 파악합니다.
+1. **가이드 문서 실시간 조회**: 루트의 `DEVELOPMENT_GUIDE.md` 및 `PROJECT_ROADMAP.md`를 `view_file` 도구로 즉시 조회하여 최신 아키텍처, DB 스키마, 완료 마일스톤 및 작업 지침을 파악합니다.
 2. **타입스크립트 컴파일 상태 확인**: `npx tsc --noEmit` 명령을 실행하여 현재 기존 소스코드에 컴파일 에러가 없는지 먼저 점검합니다.
 3. **중복 코드/폴더 생성 원천 차단**: 기존에 이미 만들어진 `src/front/`, `src/backend/` 및 커스텀 훅(`useAppData`, `useCtiCollector` 등)의 유틸리티와 컴포넌트를 우선 재활용하며 동일 기능의 레거시 중복 폴더(`src/components/`, `src/lib/services/` 등)를 생성하지 않습니다.
 
