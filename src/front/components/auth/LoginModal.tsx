@@ -202,12 +202,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
     } catch (err: any) {
       const rawMessage: string = err.message || '';
-      if (rawMessage.toLowerCase().includes('email not confirmed')) {
-        setErrorMessage('이메일 인증이 완료되지 않았습니다. 메일함(Nate 등)에 수신된 확인 링크를 눌러 승인해 주셔야 로그인이 가능합니다.');
+      console.warn('Auth Process Warning:', rawMessage);
+      
+      if (rawMessage.toLowerCase().includes('user already registered') || rawMessage.toLowerCase().includes('already exists')) {
+        // 이미 등록된 유저인 경우 로그인 시도
+        try {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: emailInput.trim(),
+            password: passwordInput,
+          });
+          if (!signInErr && signInData.session) {
+            setSuccessMessage('🎉 이미 등록된 계정입니다. 해당 패스워드로 로그인이 완료되었습니다!');
+            setTimeout(() => {
+              onLoginSuccess();
+              onClose();
+            }, 800);
+            return;
+          }
+        } catch (_) {}
+        setErrorMessage('이미 사내 명단에 등록된 이메일입니다. [로그인] 탭으로 이동하시어 등록하신 비밀번호로 로그인해 주세요.');
+        setMode('login');
+      } else if (rawMessage.toLowerCase().includes('email not confirmed')) {
+        setErrorMessage('이메일 인증이 완수되지 않았습니다. 메일함을 확인하시거나 관리자에게 문의해 주세요.');
       } else if (rawMessage.toLowerCase().includes('invalid login credentials')) {
-        setErrorMessage('이메일 또는 비밀번호가 틀렸습니다.');
-      } else if (rawMessage.toLowerCase().includes('user already registered')) {
-        setErrorMessage('이미 등록된 이메일입니다. 로그인 탭으로 이동해 주세요.');
+        setErrorMessage('이메일 또는 비밀번호가 올바르지 않습니다. 다시 확인해 주세요.');
+      } else if (rawMessage.toLowerCase().includes('unable to validate email') || rawMessage.toLowerCase().includes('invalid email')) {
+        setErrorMessage('올바른 이메일 형식이 아닙니다 (예: name@zoomansa.com).');
       } else {
         setErrorMessage(rawMessage || '인증 처리 중 오류가 발생했습니다.');
       }
