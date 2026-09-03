@@ -82,6 +82,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           throw new Error('상담원 실명을 입력해주세요.');
         }
 
+        if (passwordInput.length < 6) {
+          throw new Error('비밀번호는 최소 6자리 이상이어야 합니다.');
+        }
+
         // Supabase 회원가입 (이름, 팀, 내선, 연락처를 user_metadata에 저장)
         const { data, error } = await supabase.auth.signUp({
           email: emailInput.trim(),
@@ -117,16 +121,36 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             .from('internal_agents')
             .upsert([newAgentObj]);
             
-          // 이미 존재하면 무시(ON CONFLICT DO NOTHING 처럼)할 수도 있음.
           if (dbError && dbError.code !== '23505') {
             console.warn('Agent DB Insert Error:', dbError);
           }
         }
 
-        setSuccessMessage('🎉 회원가입 요청이 성공적으로 접수되었습니다! 입력하신 이메일의 편지함(Nate/Gmail 등)으로 발송된 인증 링크(Confirm Link)를 승인하셔야 계정이 활성화되고 로그인이 가능합니다.');
-        setMode('login');
-        setPasswordInput('');
-        setPasswordConfirm('');
+        // 가입 성공 후 즉시 로그인 세션이 생성되었거나 자동 로그인 시도
+        if (data.session) {
+          setSuccessMessage('🎉 회원가입 및 보안 로그인이 완수되었습니다! 즉시 메인 서비스로 진입합니다.');
+          setTimeout(() => {
+            onLoginSuccess();
+            onClose();
+          }, 800);
+        } else {
+          // 자동 로그인 시도
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: emailInput.trim(),
+            password: passwordInput,
+          });
+
+          if (!signInErr && signInData.session) {
+            setSuccessMessage('🎉 회원가입 및 보안 로그인이 완수되었습니다!');
+            setTimeout(() => {
+              onLoginSuccess();
+              onClose();
+            }, 800);
+          } else {
+            setSuccessMessage('🎉 회원가입 요청이 성공적으로 접수되었습니다! 이메일 주소와 비밀번호로 로그인해 주세요.');
+            setMode('login');
+          }
+        }
 
       } else if (mode === 'forgot') {
         // 2. 비밀번호 재설정 이메일 전송 프로세스
