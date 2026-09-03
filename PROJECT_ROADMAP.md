@@ -49,7 +49,7 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ### 2-12. 🚀 Phase 3.0 Vercel 사내 SaaS 상용 배포 & GitHub 연동 완료 (2026-08-24 완료)
 * **GitHub 레포지토리 연동**: `YONU-LEEHYUNWOO/zms-cs-helper` (`https://github.com/YONU-LEEHYUNWOO/zms-cs-helper.git`) 메인 브랜치 소스코드 100% 업로드 완수.
-* **Vercel 1클릭 라이브 배포**: `vercel.json` SPA Fallback 라우팅 구축 및 Vercel 클라우드 CDN 상용 배포 성공.
+* **Vercel 1클릭 라이브 배포**: `https://zms-cs-helper-w7wj.vercel.app` (`vercel.json` SPA Fallback 라우팅 구축 및 Vercel 클라우드 CDN 상용 배포 성공).
 * **클라우드 Supabase DB 실시간 마이그레이션**: 배포된 라이브 URL에서도 데이터 손실 없이 기존 Supabase 데이터 마스터와 100% 실시간 연동 완료.
 
 ### 2-13. ⚡ Gemini 3.5/3.6 Flash 초고속 2초 STT 최적화 & 계정별 키 저장 (2026-08-24 완료)

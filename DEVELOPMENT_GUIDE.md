@@ -246,7 +246,7 @@ ZMS_CS_HELPER/
   1. GitHub 리포지토리에 최신 코드 커밋 & 푸시.
   2. Vercel / Netlify 웹 대시보드 로그인 ➔ `Import Git Repository` 선택.
   3. Build Command: `npm run build`, Output Directory: `dist` 자동 감지 확인 후 Deploy 버튼 클릭.
-  4. 부여된 고유 URL (예: `https://zms-cs-helper.vercel.app`)을 사내 팀원들에게 전달하여 웹 브라우저 접속.
+  4. 부여된 고유 URL (예: `https://zms-cs-helper-w7wj.vercel.app`)을 사내 팀원들에게 전달하여 웹 브라우저 접속.
 
 ### 5.2 🔑 환경 변수 (`.env`) & API 키 보안 관리
 배포 환경에서는 소스코드에 API 키나 계정 정보를 하드코딩하지 않고, Vercel/Netlify의 **Environment Variables** 메뉴에서 안전하게 주입합니다.

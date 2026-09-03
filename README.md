@@ -3,7 +3,7 @@
 > **ZMS 파킹 CS 센터 상담 업무 통합 관제 시스템**  
 > 유선 전화/카카오톡 문의 파편화, 녹취 확인 창구 분산, 리마인더 부재로 인한 업무 누락을 완전히 타파하기 위해 개발된 **사내 통합 CS 관제 SaaS 플랫폼**입니다.
 
-🌐 **라이브 서비스 접속 주소**: [https://zms-cs-helper.vercel.app](https://zms-cs-helper.vercel.app)
+🌐 **라이브 서비스 접속 주소**: [https://zms-cs-helper-w7wj.vercel.app](https://zms-cs-helper-w7wj.vercel.app)
 
 ---
 
@@ -48,7 +48,7 @@
 - **백엔드/DB**: Supabase (PostgreSQL, Realtime DB, Auth) + LocalStorage 이중 캐시
 - **서버리스 API / 프록시**: Express (`server.ts`) / Vercel Serverless (`api/cti.ts`)
 - **AI 오디오 엔진**: Google Gemini 3.5 / 3.6 Multimodal Audio API
-- **배포 플랫폼**: Vercel (`https://zms-cs-helper.vercel.app`)
+- **배포 플랫폼**: Vercel (`https://zms-cs-helper-w7wj.vercel.app`)
 
 ---
 
