@@ -289,10 +289,13 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
 
     let channel: any = null;
     if (isSupabaseConfigured() && supabase) {
+      const channelId = `agent_tasks_sync_${Math.random().toString(36).substring(2, 9)}`;
       channel = supabase
-        .channel('public:agent_tasks_sync_repo')
+        .channel(channelId)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_tasks' }, () => {
-          this.getAllTasks().then((latest) => callback(latest));
+          this.getAllTasks().then((latest) => {
+            callback(latest);
+          });
         })
         .subscribe();
     }
