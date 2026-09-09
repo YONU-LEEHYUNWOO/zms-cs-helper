@@ -185,6 +185,14 @@ export class ConsultationRepositoryImpl implements ConsultationRepository {
           console.error('[ConsultationRepo] Supabase upsert 오류:', JSON.stringify(error));
         } else {
           console.log('[ConsultationRepo] Supabase 저장 성공:', toSave.id, '/ customer_id:', verifiedCustomerId);
+          // 실시간 타 탭/타 상담사 기기 갱신용 Broadcast 2중 안전 발송
+          try {
+            supabase.channel('consultations_broadcast_global').send({
+              type: 'broadcast',
+              event: 'consultation_updated',
+              payload: { id: toSave.id, status: toSave.status, sub_status: toSave.sub_status },
+            });
+          } catch (_) {}
         }
       } catch (e) {
         console.error('[ConsultationRepo] Supabase upsert 예외:', e);
@@ -270,22 +278,26 @@ export class ConsultationRepositoryImpl implements ConsultationRepository {
 
     // 2. Supabase가 연동된 경우 웹소켓 채널 구독
     if (isSupabaseConfigured() && supabase) {
+      const channelId = `consultations_sync_${Math.random().toString(36).substring(2, 9)}`;
       const channel = supabase
-        .channel('public:consultations')
+        .channel(channelId)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'consultations' },
           async (payload) => {
             console.log('[ConsultationRepo] 실시간 변경 감지:', payload.eventType);
-            // 전체 데이터를 다시 불러오거나 변경된 항목만 패치
-            // 안전성을 위해 전체 리로드를 수행하여 캐시 갱신
             const updated = await this.getConsultations();
             this.notifySubscribers(updated);
           }
         )
+        .on('broadcast', { event: 'consultation_updated' }, async () => {
+          console.log('[ConsultationRepo] Broadcast 변경 감지 수신');
+          const updated = await this.getConsultations();
+          this.notifySubscribers(updated);
+        })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            console.log('[ConsultationRepo] Supabase Realtime 구독 완료');
+            console.log('[ConsultationRepo] Supabase Realtime 구독 완료:', channelId);
           }
         });
 

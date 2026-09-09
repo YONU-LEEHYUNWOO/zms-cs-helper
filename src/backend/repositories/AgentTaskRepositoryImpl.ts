@@ -188,6 +188,15 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
       } else {
         console.log('[AgentTaskRepo] Supabase DB 저장 성공:', toSave.task_title);
       }
+
+      // 실시간 타 탭/타 상담사 기기 갱신용 Broadcast 2중 안전 발송
+      try {
+        supabase.channel('agent_tasks_broadcast_global').send({
+          type: 'broadcast',
+          event: 'task_updated',
+          payload: { id: toSave.id, is_completed: toSave.is_completed, agent_name: toSave.agent_name },
+        });
+      } catch (_) {}
     }
 
     // 로컬 메모리 캐시 및 localStorage 업데이트
@@ -293,6 +302,11 @@ export class AgentTaskRepositoryImpl implements IAgentTaskRepository {
       channel = supabase
         .channel(channelId)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_tasks' }, () => {
+          this.getAllTasks().then((latest) => {
+            callback(latest);
+          });
+        })
+        .on('broadcast', { event: 'task_updated' }, () => {
           this.getAllTasks().then((latest) => {
             callback(latest);
           });
