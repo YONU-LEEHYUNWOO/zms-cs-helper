@@ -306,6 +306,14 @@ localStorage.setItem(getCtiKey('cti_user_id'), value)
 // → getStoredGeminiApiKey(agentName) / setStoredGeminiApiKey(key, agentName)
 ```
 
+#### CTI 날짜 기간 검색(`begin_day`/`end_day`) 및 더보기(Pagination) 패턴 (`api/ctiCollectorService.ts`) — 2026-09-11 완수
+```ts
+// CTI 서버 날짜 범위 파라미터 (begin_day / end_day) 및 가변 페이지 수집
+searchCallRecordsWithLogs(phone, cookies, extensionFilter, startDate, endDate, startPage, endPage)
+// → 기본값: datePreset='all' (시작일/종료일 빈값으로 하위 호환성 100% 보장)
+// → 더보기: [➕ 과거 통화 이력 30건 더 불러오기] 클릭 시 (startPage+3, endPage+3) 누적 병합
+```
+
 > **규칙**: 새 AI 에이전트가 CTI/Gemini 저장 로직 수정 시 반드시 `agentName`을 전달하고 `getCtiKey()` 패턴을 사용해야 합니다.
 
 ---
@@ -372,4 +380,4 @@ GitHub repo:   YONU-LEEHYUNWOO/zms-cs-helper
 
 ---
 
-*최종 업데이트: 2026-09-02 (CTI/Gemini 계정별 자격증명 격리 패턴 확립, AI 에이전트 인수인계 전략 7섹션 신설)*
+*최종 업데이트: 2026-09-11 (CTI 내선번호 검색, CTI 날짜 기간 검색 begin_day/end_day, 과거 이력 누적 더보기 완료, CTI/Gemini 자격증명 격리 패턴 확립)*

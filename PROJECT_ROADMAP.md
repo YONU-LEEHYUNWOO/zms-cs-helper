@@ -139,6 +139,19 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
   * 상담 이관, 업무 전달, 담당 가져오기, 편집 락 브로드캐스트 전 기능 코드 레벨 검증 완료.
 * **Supabase 이메일 인증 OFF 확인**: Supabase Auth 설정에서 `Confirm email` 토글이 이미 OFF 상태로 신규 상담사 즉시 로그인 가능 상태 유지.
 
+### 2-26. 📞 CTI 상담원 내선 자유 수동 입력 & 통화일시 날짜 기간 검색 및 과거 이력 30건 더보기 페이징 완수 (2026-09-11 완료)
+* **내선번호 자동 입력 해제 & 자유 수동 입력 (`useCtiCollector.ts`, `CtiAudioSummaryModal.tsx`)**:
+  * CTI 모달 진입 시 `extensionInput` 기본값을 본인 내선 하드코딩에서 빈 문자열 `''`로 전환.
+  * 고객 번호 검색 시 내선 제한 없이 전체 통화 내역이 자동 수집되며, 필요 시 원하는 4자리 내선(예: `7997`, `105` 등)을 사용자가 직접 지정하여 자유롭게 검색 가능.
+* **통화일시 날짜 기간 검색 연동 (`startDateInput` / `endDateInput`)**:
+  * CTI 서버 파라미터 `begin_day`, `end_day` (`YYYY-MM-DD`) 파싱 및 연동 완수.
+  * 기본 기간 설정: **`전체 기간` (`all`)**, `오늘`, `최근 7일`, `최근 30일` 칩 1클릭 프리셋 및 직접 날짜 지정 피커 연동.
+* **과거 통화 이력 누적 더보기 페이징 (`handleLoadMoreCalls`)**:
+  * CTI 서버 3페이지 단위(약 30~40건) 추가 페이징 수집 구현.
+  * `[➕ 과거 통화 이력 30건 더 불러오기]` 버튼 1클릭 시 기존 통화 이력을 유지하면서 과거 이력을 추가 누적 병합.
+* **Vercel 상용 배포 및 build/tsc 0 에러 동기화**:
+  * `npx tsc --noEmit` (0 에러) 및 GitHub `origin/main` 자동 푸시를 통해 Vercel 상용 환경 (`https://zms-cs-helper-w7wj.vercel.app`) 라이브 배포 완료.
+
 ---
 
 ## 3. 🟡 차세대 SaaS 고도화 & 다음 에이전트 개발 로드맵 (Immediate Tasks for Next Agent)
@@ -177,13 +190,13 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 | 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
 | CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석 (281줄 경량화)** |
 | CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
-| CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출**, CTI 키워드/유형 필터 |
-| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태 및 비동기 API 연동 기능의 핵심 비즈니스 로직 훅. 계정별 CTI 자격증명 격리 (`getCtiKey`) 적용** |
+| CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출, 통화일시 기간 검색 프리셋 및 과거 통화 30건 더보기 연동** |
+| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태, 날짜 기간 검색(begin_day/end_day), Load-More 페이징 및 비동기 API 연동 훅** |
 | 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드, 전달 히스토리** |
 | 상담사 계정별 알림 훅 | `src/front/hooks/useNotifications.ts` | 계정별 저장소 격리, 완료 항목 자동 정제, D-Day 삭제, 100% DB 기반 실시간 동기화 |
 | 전역 마스킹 유틸리티 | `src/lib/utils/normalize.ts` | 임시 우회 식별자(`no-car-`, `no-phone-`) UI 마스킹 및 전화번호 표준화 |
 
 ---
 
-*최종 업데이트: 2026-09-02 (사이드바 카카오톡 스타일 알림 뱃지, CTI/Gemini 계정별 자격증명 완전 격리 완성, Supabase Realtime 4채널 전체 검증 완료) / 담당 AI: Antigravity*
+*최종 업데이트: 2026-09-11 (CTI 상담원 내선 자유 수동 입력, 통화일시 날짜 기간 검색 begin_day/end_day, 과거 통화 이력 30건 누적 더보기 완수) / 담당 AI: Antigravity*
 
