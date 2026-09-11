@@ -111,20 +111,20 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-slate-700">상담원 내선 필터</label>
+            <label className="text-sm font-bold text-slate-700">상담원 내선 필터 / 검색</label>
             <input
               type="text"
               value={extensionInput}
               onChange={(e) => setExtensionInput(e.target.value)}
-              placeholder="예: 7997 (전체는 공란)"
-              className="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
+              placeholder="예: 8016, 7998 (내선 4자리)"
+              className="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-slate-500">
-            수신/발신 전체 녹취 목록을 조회합니다.
+            고객 전화번호 또는 상담원 내선번호로 CTI 통화 이력을 조회합니다.
           </span>
 
           <div className="flex items-center gap-1.5">

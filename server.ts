@@ -75,11 +75,11 @@ async function startServer() {
 
     try {
       const { phoneNumber, ctiUserId, ctiUserPw, extensionFilter, selectedCallIdx, action, sessionCookie, preKnownMp3Url } = req.body;
-      if (!phoneNumber) {
-        return res.status(200).json({ success: false, message: '고객 전화번호가 필요합니다.' });
+      if (!phoneNumber && !extensionFilter) {
+        return res.status(200).json({ success: false, message: '고객 전화번호 또는 상담원 내선번호가 필요합니다.' });
       }
 
-      const cleanPhone = String(phoneNumber).replace(/[^0-9]/g, '');
+      const cleanPhone = phoneNumber ? String(phoneNumber).replace(/[^0-9]/g, '') : '';
       const targetExt = extensionFilter ? String(extensionFilter).replace(/[^0-9]/g, '') : '';
 
       let cookies = sessionCookie ? String(sessionCookie).trim() : '';
@@ -108,7 +108,7 @@ async function startServer() {
 
       let targetRecord: any = null;
       console.log('\n=============================================================');
-      console.log(`[CTI Server] 📥 /api/cti/process-recording 요청 수신: 고객번호=${cleanPhone}, callIdx=${selectedCallIdx || '미지정'}, onlyMetadata=${req.body.onlyMetadata}`);
+      console.log(`[CTI Server] 📥 /api/cti/process-recording 요청 수신: 고객번호=${cleanPhone || '전체'}, 내선=${targetExt || '전체'}, callIdx=${selectedCallIdx || '미지정'}, onlyMetadata=${req.body.onlyMetadata}`);
       console.log('=============================================================');
 
       if (records && records.length > 0) {

@@ -142,10 +142,10 @@ export class CtiCollectorService {
       ? `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 6)}-${cleanPhone.slice(6)}`
       : cleanPhone;
 
-    logs.push(`[2단계 검색 시작] 대상 고객 전화번호: '${formattedPhone}' (${cleanPhone}) | 내선 필터: '${cleanMemberExt || '전체'}'`);
+    logs.push(`[2단계 검색 시작] 대상 고객 전화번호: '${formattedPhone || '미입력'}' (${cleanPhone || '전체'}) | 내선 필터: '${cleanMemberExt || '전체'}'`);
 
-    if (!cleanPhone) {
-      logs.push(`⚠️ [2단계 오류] 입력된 고객 전화번호가 올바르지 않습니다.`);
+    if (!cleanPhone && !cleanMemberExt) {
+      logs.push(`⚠️ [2단계 오류] 입력된 고객 전화번호 또는 상담원 내선번호가 올바르지 않습니다.`);
       return { records: [], logs, cookies, isAuthSuccess: false };
     }
 
@@ -183,17 +183,35 @@ export class CtiCollectorService {
       const pageSuffix = page > 1 ? `&cur_page=${page}` : '';
       const postBodySuffix = page > 1 ? `&cur_page=${page}` : '';
 
-      searchTargets.push(
-        { url: `${this.baseUrl}/dial/call_list.jsp?guest_phone=${encodeURIComponent(formattedPhone)}${pageSuffix}`, method: 'GET', name: `call_list.jsp (GET 하이픈, p${page})`, isFailed: false },
-        { url: `${this.baseUrl}/dial/call_list.jsp?guest_phone=${cleanPhone}${pageSuffix}`, method: 'GET', name: `call_list.jsp (GET 숫자, p${page})`, isFailed: false },
-        { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${encodeURIComponent(formattedPhone)}${postBodySuffix}`, name: `call_list.jsp (POST 하이픈, p${page})`, isFailed: false },
-        { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${cleanPhone}${postBodySuffix}`, name: `call_list.jsp (POST 숫자, p${page})`, isFailed: false },
-        
-        { url: `${this.baseUrl}/dial/fail_list.jsp?guest_phone=${encodeURIComponent(formattedPhone)}${pageSuffix}`, method: 'GET', name: `fail_list.jsp (GET 하이픈, p${page})`, isFailed: true },
-        { url: `${this.baseUrl}/dial/fail_list.jsp?guest_phone=${cleanPhone}${pageSuffix}`, method: 'GET', name: `fail_list.jsp (GET 숫자, p${page})`, isFailed: true },
-        { url: `${this.baseUrl}/dial/fail_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${encodeURIComponent(formattedPhone)}${postBodySuffix}`, name: `fail_list.jsp (POST 하이픈, p${page})`, isFailed: true },
-        { url: `${this.baseUrl}/dial/fail_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${cleanPhone}${postBodySuffix}`, name: `fail_list.jsp (POST 숫자, p${page})`, isFailed: true }
-      );
+      if (cleanPhone) {
+        searchTargets.push(
+          { url: `${this.baseUrl}/dial/call_list.jsp?guest_phone=${encodeURIComponent(formattedPhone)}${pageSuffix}`, method: 'GET', name: `call_list.jsp (GET 하이픈, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/call_list.jsp?guest_phone=${cleanPhone}${pageSuffix}`, method: 'GET', name: `call_list.jsp (GET 숫자, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${encodeURIComponent(formattedPhone)}${postBodySuffix}`, name: `call_list.jsp (POST 하이픈, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${cleanPhone}${postBodySuffix}`, name: `call_list.jsp (POST 숫자, p${page})`, isFailed: false },
+          
+          { url: `${this.baseUrl}/dial/fail_list.jsp?guest_phone=${encodeURIComponent(formattedPhone)}${pageSuffix}`, method: 'GET', name: `fail_list.jsp (GET 하이픈, p${page})`, isFailed: true },
+          { url: `${this.baseUrl}/dial/fail_list.jsp?guest_phone=${cleanPhone}${pageSuffix}`, method: 'GET', name: `fail_list.jsp (GET 숫자, p${page})`, isFailed: true },
+          { url: `${this.baseUrl}/dial/fail_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${encodeURIComponent(formattedPhone)}${postBodySuffix}`, name: `fail_list.jsp (POST 하이픈, p${page})`, isFailed: true },
+          { url: `${this.baseUrl}/dial/fail_list.jsp`, method: 'POST', body: `req_mode=&guest_phone=${cleanPhone}${postBodySuffix}`, name: `fail_list.jsp (POST 숫자, p${page})`, isFailed: true }
+        );
+      }
+
+      if (cleanMemberExt) {
+        searchTargets.push(
+          { url: `${this.baseUrl}/dial/call_list.jsp?member_phone=${cleanMemberExt}${pageSuffix}`, method: 'GET', name: `call_list.jsp (GET 내선 ${cleanMemberExt}, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'POST', body: `req_mode=&member_phone=${cleanMemberExt}${postBodySuffix}`, name: `call_list.jsp (POST 내선 ${cleanMemberExt}, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/fail_list.jsp?member_phone=${cleanMemberExt}${pageSuffix}`, method: 'GET', name: `fail_list.jsp (GET 내선 ${cleanMemberExt}, p${page})`, isFailed: true },
+          { url: `${this.baseUrl}/dial/fail_list.jsp`, method: 'POST', body: `req_mode=&member_phone=${cleanMemberExt}${postBodySuffix}`, name: `fail_list.jsp (POST 내선 ${cleanMemberExt}, p${page})`, isFailed: true }
+        );
+      }
+
+      // 전화번호도 없고 내선만 들어온 경우 전체 1페이지 기본조회 포함
+      if (!cleanPhone && cleanMemberExt && page === 1) {
+        searchTargets.push(
+          { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'GET', name: `call_list.jsp (전체 목록, p1)`, isFailed: false }
+        );
+      }
     }
 
     for (const target of searchTargets) {

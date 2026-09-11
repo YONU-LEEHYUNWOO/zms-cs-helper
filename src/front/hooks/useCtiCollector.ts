@@ -163,9 +163,10 @@ export const useCtiCollector = ({
    * [1단계] CTI 서버 통화 이력 목록 파싱 조회 (search_only 모드)
    */
   const handleSearchCallList = async () => {
-    const targetPhone = phoneInput || '';
-    if (!targetPhone) {
-      setToastMessage('⚠️ 조회할 고객 전화번호를 입력해 주세요.');
+    const targetPhone = phoneInput ? phoneInput.trim() : '';
+    const targetExt = extensionInput ? extensionInput.trim() : '';
+    if (!targetPhone && !targetExt) {
+      setToastMessage('⚠️ 조회할 고객 전화번호 또는 내선번호를 입력해 주세요.');
       return;
     }
 
@@ -180,8 +181,8 @@ export const useCtiCollector = ({
 
     try {
       const payload = {
-        phoneNumber: targetPhone,
-        extensionFilter: extensionInput.trim() || undefined,
+        phoneNumber: targetPhone || undefined,
+        extensionFilter: targetExt || undefined,
         ctiUserId: ctiUserIdInput.trim() || 'guest',
         ctiUserPw: ctiUserPwInput.trim() || 'guest1',
         sessionCookie: ctiSessionCookieInput.trim() || undefined,
@@ -234,7 +235,7 @@ export const useCtiCollector = ({
           const rawExt = item.fromExtension || item.extension || item.memberPhone || extensionInput.trim() || '7995';
           const cleanExt = rawExt.replace(/[^0-9]/g, '').slice(-4) || '7995';
           const memberP = item.memberPhone || (rawExt.startsWith('070') ? rawExt : `070-7931-${cleanExt}`);
-          const guestP = item.guestPhone || targetPhone;
+          const guestP = item.guestPhone || targetPhone || '미입력';
           const cleanGuestP = guestP.replace(/[^0-9]/g, '');
           const dStr = item.callDateStr || new Date().toISOString().slice(0, 16).replace('T', ' ');
 
@@ -294,7 +295,7 @@ export const useCtiCollector = ({
           if (data.rawHtmlText && data.rawHtmlText.includes('top.location.href="/index.jsp"')) {
             setToastMessage('⚠️ CTI 로그인 세션이 승인되지 않은 상태입니다. [계정 변경] ➔ [🧪 CTI 계정 로그인 테스트]를 먼저 진행해 주세요.');
           } else {
-            setToastMessage(`ℹ️ 입력하신 고객 전화번호(${targetPhone})의 CTI 통화 이력이 0건 발견되었습니다.`);
+            setToastMessage(`ℹ️ 입력하신 검색 조건(${targetPhone || targetExt})의 CTI 통화 이력이 0건 발견되었습니다.`);
           }
         }
       } else {
@@ -303,7 +304,7 @@ export const useCtiCollector = ({
         if (data.rawHtmlText && data.rawHtmlText.includes('top.location.href="/index.jsp"')) {
           setToastMessage('⚠️ CTI 세션이 만료되었습니다. [계정 변경] ➔ [🧪 CTI 계정 로그인 테스트]를 진행해 주세요.');
         } else {
-          setToastMessage(`ℹ️ CTI 서버 조회 완료: 입력하신 번호(${targetPhone})의 통화 기록이 0건입니다.`);
+          setToastMessage(`ℹ️ CTI 서버 조회 완료: 입력하신 검색 조건(${targetPhone || targetExt})의 통화 기록이 0건입니다.`);
         }
       }
     } catch (e: any) {
