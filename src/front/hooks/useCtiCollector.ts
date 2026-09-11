@@ -29,7 +29,7 @@ export const useCtiCollector = ({
   const [phoneInput, setPhoneInput] = useState<string>('');
   // 계정별 CTI 자격증명 격리 키 생성 유틸 (agentName 기반)
   const getCtiKey = (base: string) => agentName ? `${base}_${agentName}` : base;
-  const [extensionInput, setExtensionInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_extension_${agentName}` : 'cti_extension') || '');
+  const [extensionInput, setExtensionInput] = useState<string>('');
   const [ctiUserIdInput, setCtiUserIdInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_user_id_${agentName}` : 'cti_user_id') || '');
   const [ctiUserPwInput, setCtiUserPwInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_user_pw_${agentName}` : 'cti_user_pw') || '');
   const [ctiSessionCookieInput, setCtiSessionCookieInput] = useState<string>(() => localStorage.getItem(agentName ? `cti_session_cookie_${agentName}` : 'cti_session_cookie') || '');
@@ -92,9 +92,9 @@ export const useCtiCollector = ({
             : clean;
         setPhoneInput(formatted);
       }
-      // 계정 전환 시 해당 계정의 저장된 CTI 자격증명으로 즉시 동기화
+      // 계정 전환 시 해당 계정의 저장된 CTI 자격증명으로 동기화 (내선 필터는 자동 프리필 해제 - 기본 빈값)
       setApiKeyInput(getStoredGeminiApiKey(agentName));
-      setExtensionInput(localStorage.getItem(getCtiKey('cti_extension')) || '');
+      setExtensionInput('');
       setCtiUserIdInput(localStorage.getItem(getCtiKey('cti_user_id')) || '');
       setCtiUserPwInput(localStorage.getItem(getCtiKey('cti_user_pw')) || '');
       setCtiSessionCookieInput(localStorage.getItem(getCtiKey('cti_session_cookie')) || '');
