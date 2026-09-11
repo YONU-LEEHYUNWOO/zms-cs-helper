@@ -159,14 +159,48 @@ export const useCtiCollector = ({
     }
   };
 
+  const formatDateString = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const [datePreset, setDatePreset] = useState<'7days' | 'today' | '30days' | 'all' | 'custom'>('7days');
+  const [startDateInput, setStartDateInput] = useState<string>(() => formatDateString(new Date(Date.now() - 7 * 86400000)));
+  const [endDateInput, setEndDateInput] = useState<string>(() => formatDateString(new Date()));
+  const [currentMaxPage, setCurrentMaxPage] = useState<number>(3);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
+  const handleSelectPreset = (preset: '7days' | 'today' | '30days' | 'all' | 'custom') => {
+    setDatePreset(preset);
+    const todayStr = formatDateString(new Date());
+    if (preset === 'today') {
+      setStartDateInput(todayStr);
+      setEndDateInput(todayStr);
+    } else if (preset === '7days') {
+      setStartDateInput(formatDateString(new Date(Date.now() - 7 * 86400000)));
+      setEndDateInput(todayStr);
+    } else if (preset === '30days') {
+      setStartDateInput(formatDateString(new Date(Date.now() - 30 * 86400000)));
+      setEndDateInput(todayStr);
+    } else if (preset === 'all') {
+      setStartDateInput('');
+      setEndDateInput('');
+    }
+  };
+
   /**
    * [1단계] CTI 서버 통화 이력 목록 파싱 조회 (search_only 모드)
    */
   const handleSearchCallList = async () => {
     const targetPhone = phoneInput ? phoneInput.trim() : '';
     const targetExt = extensionInput ? extensionInput.trim() : '';
-    if (!targetPhone && !targetExt) {
-      setToastMessage('⚠️ 조회할 고객 전화번호 또는 내선번호를 입력해 주세요.');
+    const sDate = startDateInput ? startDateInput.trim() : '';
+    const eDate = endDateInput ? endDateInput.trim() : '';
+
+    if (!targetPhone && !targetExt && !sDate && !eDate) {
+      setToastMessage('⚠️ 조회할 고객 전화번호, 내선번호 또는 날짜 기간을 입력해 주세요.');
       return;
     }
 
@@ -178,11 +212,16 @@ export const useCtiCollector = ({
 
     setIsSearchingList(true);
     setToastMessage(null);
+    setCurrentMaxPage(3);
 
     try {
       const payload = {
         phoneNumber: targetPhone || undefined,
         extensionFilter: targetExt || undefined,
+        startDate: sDate || undefined,
+        endDate: eDate || undefined,
+        startPage: 1,
+        endPage: 3,
         ctiUserId: ctiUserIdInput.trim() || 'guest',
         ctiUserPw: ctiUserPwInput.trim() || 'guest1',
         sessionCookie: ctiSessionCookieInput.trim() || undefined,
@@ -295,7 +334,7 @@ export const useCtiCollector = ({
           if (data.rawHtmlText && data.rawHtmlText.includes('top.location.href="/index.jsp"')) {
             setToastMessage('⚠️ CTI 로그인 세션이 승인되지 않은 상태입니다. [계정 변경] ➔ [🧪 CTI 계정 로그인 테스트]를 먼저 진행해 주세요.');
           } else {
-            setToastMessage(`ℹ️ 입력하신 검색 조건(${targetPhone || targetExt})의 CTI 통화 이력이 0건 발견되었습니다.`);
+            setToastMessage(`ℹ️ 입력하신 검색 조건(${targetPhone || targetExt || sDate})의 CTI 통화 이력이 0건 발견되었습니다.`);
           }
         }
       } else {
@@ -304,7 +343,7 @@ export const useCtiCollector = ({
         if (data.rawHtmlText && data.rawHtmlText.includes('top.location.href="/index.jsp"')) {
           setToastMessage('⚠️ CTI 세션이 만료되었습니다. [계정 변경] ➔ [🧪 CTI 계정 로그인 테스트]를 진행해 주세요.');
         } else {
-          setToastMessage(`ℹ️ CTI 서버 조회 완료: 입력하신 검색 조건(${targetPhone || targetExt})의 통화 기록이 0건입니다.`);
+          setToastMessage(`ℹ️ CTI 서버 조회 완료: 입력하신 검색 조건(${targetPhone || targetExt || sDate})의 통화 기록이 0건입니다.`);
         }
       }
     } catch (e: any) {
@@ -315,6 +354,106 @@ export const useCtiCollector = ({
       }
     } finally {
       setIsSearchingList(false);
+    }
+  };
+
+  /**
+   * [1-2단계] 과거 통화 이력 더보기 (페이지 3개 추가 파싱)
+   */
+  const handleLoadMoreCalls = async () => {
+    const targetPhone = phoneInput ? phoneInput.trim() : '';
+    const targetExt = extensionInput ? extensionInput.trim() : '';
+    const sDate = startDateInput ? startDateInput.trim() : '';
+    const eDate = endDateInput ? endDateInput.trim() : '';
+
+    const nextStartPage = currentMaxPage + 1;
+    const nextEndPage = currentMaxPage + 3;
+
+    setIsLoadingMore(true);
+    setToastMessage(null);
+
+    try {
+      const payload = {
+        phoneNumber: targetPhone || undefined,
+        extensionFilter: targetExt || undefined,
+        startDate: sDate || undefined,
+        endDate: eDate || undefined,
+        startPage: nextStartPage,
+        endPage: nextEndPage,
+        ctiUserId: ctiUserIdInput.trim() || 'guest',
+        ctiUserPw: ctiUserPwInput.trim() || 'guest1',
+        sessionCookie: ctiSessionCookieInput.trim() || undefined,
+        action: 'search_only',
+      };
+
+      let response = await fetch('/api/cti/process-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 404) {
+        response = await fetch('http://localhost:3000/api/cti/process-recording', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const data = await response.json();
+      if (data.success && Array.isArray(data.records)) {
+        const newMapped: CtiCallRecord[] = data.records.map((item: any, i: number) => {
+          const idx = item.callIdx || item.id || String(20520896 - i);
+          const rawExt = item.fromExtension || item.extension || item.memberPhone || extensionInput.trim() || '7995';
+          const cleanExt = rawExt.replace(/[^0-9]/g, '').slice(-4) || '7995';
+          const memberP = item.memberPhone || (rawExt.startsWith('070') ? rawExt : `070-7931-${cleanExt}`);
+          const guestP = item.guestPhone || targetPhone || '미입력';
+          const dStr = item.callDateStr || new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+          return {
+            callIdx: String(idx),
+            companyName: item.companyName || '주차장만드는사람들 주식회사',
+            userName: item.userName || '주차장만드는사람들',
+            memberPhone: memberP,
+            guestPhone: guestP,
+            callDateStr: dStr,
+            callEndDateStr: item.callEndDateStr || '',
+            callType: item.callType === 'in' ? 'in' : 'out',
+            durationStr: item.durationStr || '27초',
+            statusText: item.statusText || '통화성공',
+            detailUrl: item.detailUrl || `detail_view.jsp?call_idx=${idx}`,
+            mp3Url: item.mp3Url || item.relativeUrl || '',
+            fullUrl: item.fullUrl || '',
+            filename: item.filename || 'recording.mp3',
+            isSimulation: !!item.isSimulation,
+            isFailed: !!item.isFailed,
+          };
+        });
+
+        let addedCount = 0;
+        setFetchedRecords(prev => {
+          const existingIds = new Set(prev.map(r => r.callIdx));
+          const toAdd = newMapped.filter(r => !existingIds.has(r.callIdx));
+          addedCount = toAdd.length;
+          const merged = [...prev, ...toAdd];
+          merged.sort((a, b) => {
+            const timeA = new Date(a.callDateStr.replace(/-/g, '/')).getTime() || 0;
+            const timeB = new Date(b.callDateStr.replace(/-/g, '/')).getTime() || 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return Number(b.callIdx) - Number(a.callIdx);
+          });
+          return merged;
+        });
+
+        setCurrentMaxPage(nextEndPage);
+        setToastMessage(`✅ 과거 통화 이력 ${addedCount}건 추가 수집 완료 (총 ${nextEndPage}페이지까지 파싱됨)`);
+      } else {
+        setToastMessage('ℹ️ 더 이상 추가적인 과거 통화 기록이 존재하지 않습니다.');
+      }
+    } catch (e: any) {
+      setToastMessage(`⚠️ 과거 통화 수집 중 오류: ${e.message}`);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -658,6 +797,16 @@ export const useCtiCollector = ({
     parsedPhone,
     filteredRecords,
     selectedRecord,
+    datePreset,
+    setDatePreset,
+    startDateInput,
+    setStartDateInput,
+    endDateInput,
+    setEndDateInput,
+    handleSelectPreset,
+    currentMaxPage,
+    isLoadingMore,
+    handleLoadMoreCalls,
     handleSaveCtiSettings,
     handleTestCtiLogin,
     handleSearchCallList,

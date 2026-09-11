@@ -74,13 +74,15 @@ async function startServer() {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     try {
-      const { phoneNumber, ctiUserId, ctiUserPw, extensionFilter, selectedCallIdx, action, sessionCookie, preKnownMp3Url } = req.body;
-      if (!phoneNumber && !extensionFilter) {
-        return res.status(200).json({ success: false, message: '고객 전화번호 또는 상담원 내선번호가 필요합니다.' });
+      const { phoneNumber, ctiUserId, ctiUserPw, extensionFilter, selectedCallIdx, action, sessionCookie, preKnownMp3Url, startDate, endDate, startPage, endPage } = req.body;
+      if (!phoneNumber && !extensionFilter && !startDate && !endDate) {
+        return res.status(200).json({ success: false, message: '고객 전화번호, 상담원 내선번호 또는 날짜 기간 검색 조건이 필요합니다.' });
       }
 
       const cleanPhone = phoneNumber ? String(phoneNumber).replace(/[^0-9]/g, '') : '';
       const targetExt = extensionFilter ? String(extensionFilter).replace(/[^0-9]/g, '') : '';
+      const sPage = typeof startPage === 'number' ? startPage : 1;
+      const ePage = typeof endPage === 'number' ? endPage : 3;
 
       let cookies = sessionCookie ? String(sessionCookie).trim() : '';
       let logs: string[] = [];
@@ -93,7 +95,7 @@ async function startServer() {
         logs = [...loginRes.logs];
       }
 
-      const searchRes = await ctiCollectorService.searchCallRecordsWithLogs(cleanPhone, cookies, targetExt);
+      const searchRes = await ctiCollectorService.searchCallRecordsWithLogs(cleanPhone, cookies, targetExt, startDate, endDate, sPage, ePage);
       let records: any[] = searchRes.records;
       logs = [...logs, ...searchRes.logs];
 

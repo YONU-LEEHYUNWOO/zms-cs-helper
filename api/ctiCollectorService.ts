@@ -129,23 +129,30 @@ export class CtiCollectorService {
    * From=[고객전화], To=[내선번호] 파일명 규칙 적용
    */
   async searchCallRecordsWithLogs(
-    phoneNumber: string, 
+    phoneNumber: string = '', 
     cookies: string, 
-    extensionFilter?: string
+    extensionFilter?: string,
+    startDate?: string,
+    endDate?: string,
+    startPage: number = 1,
+    endPage: number = 3
   ): Promise<CtiDiagnosticResult> {
     const logs: string[] = [];
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const cleanPhone = (phoneNumber || '').replace(/[^0-9]/g, '');
     const cleanMemberExt = extensionFilter ? extensionFilter.replace(/[^0-9]/g, '') : '';
+    const cleanStartDate = startDate ? startDate.trim() : '';
+    const cleanEndDate = endDate ? endDate.trim() : '';
+
     const formattedPhone = cleanPhone.length === 11 
       ? `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 7)}-${cleanPhone.slice(7)}` 
       : cleanPhone.length === 10
       ? `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 6)}-${cleanPhone.slice(6)}`
       : cleanPhone;
 
-    logs.push(`[2단계 검색 시작] 대상 고객 전화번호: '${formattedPhone || '미입력'}' (${cleanPhone || '전체'}) | 내선 필터: '${cleanMemberExt || '전체'}'`);
+    logs.push(`[2단계 검색 시작] 고객번호: '${formattedPhone || '전체'}' | 내선: '${cleanMemberExt || '전체'}' | 기간: '${cleanStartDate || '전체'} ~ ${cleanEndDate || '전체'}' (페이지: ${startPage}~${endPage})`);
 
-    if (!cleanPhone && !cleanMemberExt) {
-      logs.push(`⚠️ [2단계 오류] 입력된 고객 전화번호 또는 상담원 내선번호가 올바르지 않습니다.`);
+    if (!cleanPhone && !cleanMemberExt && !cleanStartDate && !cleanEndDate) {
+      logs.push(`⚠️ [2단계 오류] 조회할 검색 조건(전화번호, 내선번호, 날짜 기간)이 설정되지 않았습니다.`);
       return { records: [], logs, cookies, isAuthSuccess: false };
     }
 
@@ -174,14 +181,16 @@ export class CtiCollectorService {
       logs.push(`⚠️ [2단계 메뉴 접근 경고]: ${e?.message || e}`);
     }
 
-    // 3단계: call_list.jsp 및 fail_list.jsp 다중 조회 (GET & POST 지원 및 다중 페이지네이션 cur_page=1~3 조회 루프 적용)
+    // 3단계: call_list.jsp 및 fail_list.jsp 다중 조회 (GET & POST 지원 및 페이지 범위 수집)
     const allHtmlContents: { text: string; isFailed: boolean }[] = [];
     const searchTargets: { url: string; method: string; body?: string; name: string; isFailed: boolean }[] = [];
 
-    // 페이지 1부터 3까지 크롤링 타겟 추가
-    for (let page = 1; page <= 3; page++) {
-      const pageSuffix = page > 1 ? `&cur_page=${page}` : '';
-      const postBodySuffix = page > 1 ? `&cur_page=${page}` : '';
+    const dateQuerySuffix = (cleanStartDate ? `&begin_day=${cleanStartDate}` : '') + (cleanEndDate ? `&end_day=${cleanEndDate}` : '');
+    const dateBodySuffix = (cleanStartDate ? `&begin_day=${cleanStartDate}` : '') + (cleanEndDate ? `&end_day=${cleanEndDate}` : '');
+
+    for (let page = startPage; page <= endPage; page++) {
+      const pageSuffix = (page > 1 ? `&cur_page=${page}` : '') + dateQuerySuffix;
+      const postBodySuffix = (page > 1 ? `&cur_page=${page}` : '') + dateBodySuffix;
 
       if (cleanPhone) {
         searchTargets.push(
@@ -206,10 +215,16 @@ export class CtiCollectorService {
         );
       }
 
-      // 전화번호도 없고 내선만 들어온 경우 전체 1페이지 기본조회 포함
       if (!cleanPhone && cleanMemberExt && page === 1) {
         searchTargets.push(
-          { url: `${this.baseUrl}/dial/call_list.jsp`, method: 'GET', name: `call_list.jsp (전체 목록, p1)`, isFailed: false }
+          { url: `${this.baseUrl}/dial/call_list.jsp?1=1${dateQuerySuffix}`, method: 'GET', name: `call_list.jsp (전체 목록, p1)`, isFailed: false }
+        );
+      }
+
+      if (!cleanPhone && !cleanMemberExt && (cleanStartDate || cleanEndDate)) {
+        searchTargets.push(
+          { url: `${this.baseUrl}/dial/call_list.jsp?1=1${pageSuffix}`, method: 'GET', name: `call_list.jsp (기간 전체, p${page})`, isFailed: false },
+          { url: `${this.baseUrl}/dial/fail_list.jsp?1=1${pageSuffix}`, method: 'GET', name: `fail_list.jsp (기간 실패, p${page})`, isFailed: true }
         );
       }
     }
@@ -296,8 +311,16 @@ export class CtiCollectorService {
     };
   }
 
-  async searchCallRecords(phoneNumber: string, cookies: string, extensionFilter?: string): Promise<CtiCallRecord[]> {
-    const res = await this.searchCallRecordsWithLogs(phoneNumber, cookies, extensionFilter);
+  async searchCallRecords(
+    phoneNumber: string = '', 
+    cookies: string, 
+    extensionFilter?: string,
+    startDate?: string,
+    endDate?: string,
+    startPage: number = 1,
+    endPage: number = 3
+  ): Promise<CtiCallRecord[]> {
+    const res = await this.searchCallRecordsWithLogs(phoneNumber, cookies, extensionFilter, startDate, endDate, startPage, endPage);
     return res.records;
   }
 

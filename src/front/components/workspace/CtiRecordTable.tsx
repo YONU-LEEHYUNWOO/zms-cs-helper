@@ -17,6 +17,16 @@ interface CtiRecordTableProps {
   setPhoneInput: (val: string) => void;
   extensionInput: string;
   setExtensionInput: (val: string) => void;
+  datePreset: '7days' | 'today' | '30days' | 'all' | 'custom';
+  setDatePreset: (preset: '7days' | 'today' | '30days' | 'all' | 'custom') => void;
+  startDateInput: string;
+  setStartDateInput: (val: string) => void;
+  endDateInput: string;
+  setEndDateInput: (val: string) => void;
+  handleSelectPreset: (preset: '7days' | 'today' | '30days' | 'all' | 'custom') => void;
+  currentMaxPage: number;
+  isLoadingMore: boolean;
+  handleLoadMoreCalls: () => Promise<void>;
   isSearchingList: boolean;
   rawHtmlText: string;
   setShowRawHtmlModal: (val: boolean) => void;
@@ -58,6 +68,16 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
   setPhoneInput,
   extensionInput,
   setExtensionInput,
+  datePreset,
+  setDatePreset,
+  startDateInput,
+  setStartDateInput,
+  endDateInput,
+  setEndDateInput,
+  handleSelectPreset,
+  currentMaxPage,
+  isLoadingMore,
+  handleLoadMoreCalls,
   isSearchingList,
   rawHtmlText,
   setShowRawHtmlModal,
@@ -95,10 +115,10 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
   return (
     <div className="w-1/2 flex flex-col divide-y divide-slate-100 overflow-y-auto custom-scroll border-r border-slate-200">
       {/* 🔍 검색 조건 입력 폼 */}
-      <div className="p-5 bg-slate-50 flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="p-4 bg-slate-50 flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-slate-700 flex items-center gap-1">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
               <span>고객 전화번호</span>
             </label>
             <input
@@ -106,25 +126,102 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
               value={phoneInput}
               onChange={(e) => setPhoneInput(e.target.value)}
               placeholder="예: 010-0000-0000"
-              className="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
+              className="px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
             />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-slate-700">상담원 내선 필터 / 검색</label>
+            <label className="text-xs font-bold text-slate-700">상담원 내선 필터 / 검색</label>
             <input
               type="text"
               value={extensionInput}
               onChange={(e) => setExtensionInput(e.target.value)}
               placeholder="예: 8016, 7998 (내선 4자리)"
-              className="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
+              className="px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-bold"
+            />
+          </div>
+        </div>
+
+        {/* 📅 통화일시 조회 기간 칩 & 날짜 입력 */}
+        <div className="flex flex-col gap-1.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+              📅 CTI 통화일시 범위
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('7days')}
+                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
+                  datePreset === '7days'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                최근 7일
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('today')}
+                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
+                  datePreset === 'today'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                오늘
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('30days')}
+                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
+                  datePreset === '30days'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                최근 30일
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('all')}
+                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
+                  datePreset === 'all'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                전체 기간
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={startDateInput}
+              onChange={(e) => {
+                setStartDateInput(e.target.value);
+                setDatePreset('custom');
+              }}
+              className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 font-mono font-bold text-slate-800"
+            />
+            <span className="text-xs font-bold text-slate-400">~</span>
+            <input
+              type="date"
+              value={endDateInput}
+              onChange={(e) => {
+                setEndDateInput(e.target.value);
+                setDatePreset('custom');
+              }}
+              className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 font-mono font-bold text-slate-800"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-500">
-            고객 전화번호 또는 상담원 내선번호로 CTI 통화 이력을 조회합니다.
+          <span className="text-[11px] text-slate-500">
+            고객번호, 내선번호, 날짜범위 조건으로 수집합니다.
           </span>
 
           <div className="flex items-center gap-1.5">
@@ -132,7 +229,7 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
               <button
                 type="button"
                 onClick={() => setShowRawHtmlModal(true)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-amber-300 font-bold text-xs rounded-lg border border-slate-700 flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-amber-300 font-bold text-xs rounded-lg border border-slate-700 flex items-center gap-1 cursor-pointer"
               >
                 <span>원문 보기</span>
               </button>
@@ -141,10 +238,10 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
             <button
               type="button"
               onClick={handleResetSearch}
-              className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm rounded-lg border border-slate-300 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg border border-slate-300 flex items-center gap-1 cursor-pointer transition-all active:scale-95"
               title="검색 조건 및 수집 결과를 모두 초기화합니다."
             >
-              <RotateCcw className="w-4 h-4 text-slate-500" />
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
               <span>초기화</span>
             </button>
 
@@ -152,12 +249,12 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
               type="button"
               onClick={handleSearchCallList}
               disabled={isSearchingList}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {isSearchingList ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /><span>수집 중...</span></>
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>수집 중...</span></>
               ) : (
-                <><Search className="w-4 h-4" /><span>조회</span></>
+                <><Search className="w-3.5 h-3.5" /><span>조회</span></>
               )}
             </button>
           </div>
@@ -366,6 +463,27 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* ➕ 과거 통화 이력 더 불러오기 버튼 */}
+          <div className="pt-1 flex justify-center">
+            <button
+              type="button"
+              onClick={handleLoadMoreCalls}
+              disabled={isLoadingMore || isSearchingList}
+              className="w-full py-2 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                  <span>과거 페이지 수집 중... ({currentMaxPage + 1}~{currentMaxPage + 3}페이지)</span>
+                </>
+              ) : (
+                <>
+                  <span>➕ 과거 통화 이력 30건 더 불러오기 (현재 {currentMaxPage}페이지까지 파싱됨)</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
