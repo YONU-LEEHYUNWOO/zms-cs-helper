@@ -151,14 +151,14 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => handleSelectPreset('7days')}
+                onClick={() => handleSelectPreset('all')}
                 className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
-                  datePreset === '7days'
+                  datePreset === 'all'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                최근 7일
+                전체 기간
               </button>
               <button
                 type="button"
@@ -173,6 +173,17 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => handleSelectPreset('7days')}
+                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
+                  datePreset === '7days'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                최근 7일
+              </button>
+              <button
+                type="button"
                 onClick={() => handleSelectPreset('30days')}
                 className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
                   datePreset === '30days'
@@ -181,17 +192,6 @@ export const CtiRecordTable: React.FC<CtiRecordTableProps> = ({
                 }`}
               >
                 최근 30일
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectPreset('all')}
-                className={`px-2 py-0.5 text-[11px] rounded-md font-bold transition-all cursor-pointer ${
-                  datePreset === 'all'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                전체 기간
               </button>
             </div>
           </div>

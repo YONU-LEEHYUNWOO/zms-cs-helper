@@ -92,9 +92,12 @@ export const useCtiCollector = ({
             : clean;
         setPhoneInput(formatted);
       }
-      // 계정 전환 시 해당 계정의 저장된 CTI 자격증명으로 동기화 (내선 필터는 자동 프리필 해제 - 기본 빈값)
+      // 계정 전환 시 해당 계정의 저장된 CTI 자격증명으로 동기화 (내선 필터 및 날짜 기간은 기본 전체 조회)
       setApiKeyInput(getStoredGeminiApiKey(agentName));
       setExtensionInput('');
+      setDatePreset('all');
+      setStartDateInput('');
+      setEndDateInput('');
       setCtiUserIdInput(localStorage.getItem(getCtiKey('cti_user_id')) || '');
       setCtiUserPwInput(localStorage.getItem(getCtiKey('cti_user_pw')) || '');
       setCtiSessionCookieInput(localStorage.getItem(getCtiKey('cti_session_cookie')) || '');
@@ -166,9 +169,9 @@ export const useCtiCollector = ({
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const [datePreset, setDatePreset] = useState<'7days' | 'today' | '30days' | 'all' | 'custom'>('7days');
-  const [startDateInput, setStartDateInput] = useState<string>(() => formatDateString(new Date(Date.now() - 7 * 86400000)));
-  const [endDateInput, setEndDateInput] = useState<string>(() => formatDateString(new Date()));
+  const [datePreset, setDatePreset] = useState<'7days' | 'today' | '30days' | 'all' | 'custom'>('all');
+  const [startDateInput, setStartDateInput] = useState<string>('');
+  const [endDateInput, setEndDateInput] = useState<string>('');
   const [currentMaxPage, setCurrentMaxPage] = useState<number>(3);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
