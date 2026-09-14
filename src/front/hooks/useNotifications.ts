@@ -1,17 +1,19 @@
 /**
- * ZMS CS Helper - 알림 시스템 커스텀 훅
+ * ZMS CS Helper - 알림 시스템 커스텀 훅 (useNotifications)
  *
- * [역할]
- * - 앱 부팅 시 상담 데이터를 분석하여 알림 항목을 자동 생성
- * - Supabase Realtime 변경 이벤트 감지 시 실시간 알림 추가
+ * [역할 및 아키텍처 위치]
+ * - src/front/hooks/useNotifications.ts
+ * - Supabase DB (internal_agents.read_notification_ids) 100% 중앙 동기화
+ * - 로컬스토리지 전면 제거 & 24시간 일차별 방치건 스마트 재리마인드
  *
  * [알림 종류]
- * 1. 📋 상담 이관: 내 담당 건을 타 상담사가 가져감 (Realtime)
- * 2. ⏰ D-Day/D-1: 오늘/내일 희망 주차 시작일인 내 담당 건
- * 3. 🔄 상태 정체: 3일 이상 상태 변경 없는 비완료 내 담당 건
+ * 1. ⚙️ 처리 진행중 (in_progress): 공유자부재, 결제메시지전송, 부서확인중 등 내 담당 건 (일차별 재알림)
+ * 2. 📋 처리 정체 (stale): 3일 이상 상태 변경 없는 내 담당 건 (일차별 재알림)
+ * 3. 🔔 TODO 마감 (task_due): 지정한 미리 알림 시각 도달 TODO
+ * 4. 📌 업무 수신 (task_transferred): 타 상담사가 나에게 전달한 TODO
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Consultation, Customer, AgentTask } from '../../backend/types';
 import { maskTempCarNumber, maskTempPhoneNumber } from '../../lib/utils/normalize';
 import { getResolvedStatus } from '../../lib/utils/consultationArchive';
@@ -25,25 +27,6 @@ export interface Notification {
   taskId?: string;
   isRead: boolean;
   createdAt: string;
-}
-
-const STORAGE_KEY = 'zms_notifications_v1';
-
-// localStorage에서 상담사 계정별 알림 목록 로드
-function loadNotifications(agentName?: string): Notification[] {
-  try {
-    const key = agentName ? `zms_notifications_${agentName}` : 'zms_notifications_v1';
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-// localStorage에 상담사 계정별 알림 목록 저장
-function saveNotifications(notifications: Notification[], agentName?: string): void {
-  const key = agentName ? `zms_notifications_${agentName}` : 'zms_notifications_v1';
-  localStorage.setItem(key, JSON.stringify(notifications));
 }
 
 // ⚙️ 칸반 보드 [처리 진행중] (해결중) 여부 판단 함수
@@ -75,6 +58,8 @@ interface UseNotificationsOptions {
   customers: Customer[];
   tasks?: AgentTask[];
   currentAgentName: string;
+  readNotificationIds?: string[];
+  onUpdateReadNotifications?: (readIds: string[]) => void;
 }
 
 export function useNotifications({
@@ -82,9 +67,23 @@ export function useNotifications({
   customers,
   tasks = [],
   currentAgentName,
+  readNotificationIds = [],
+  onUpdateReadNotifications,
 }: UseNotificationsOptions) {
-  const [notifications, setNotifications] = useState<Notification[]>(() => loadNotifications(currentAgentName));
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [tick, setTick] = useState(0);
+
+  // 🧹 기존 로컬스토리지 찌꺼기 데이터 완전 제거 (사용자혼선 방지)
+  useEffect(() => {
+    try {
+      localStorage.removeItem('zms_notifications_v1');
+      if (currentAgentName) {
+        localStorage.removeItem(`zms_notifications_${currentAgentName}`);
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentAgentName]);
 
   // ⏱️ 5초 간격 실시간 시계 타이머 (마감 시각 도달 감지용)
   useEffect(() => {
@@ -94,52 +93,23 @@ export function useNotifications({
     return () => clearInterval(timer);
   }, []);
 
-  // 알림 목록 업데이트 및 저장
-  const updateNotifications = useCallback((newList: Notification[]) => {
-    setNotifications(newList);
-    saveNotifications(newList, currentAgentName);
-  }, [currentAgentName]);
+  // Supabase DB 저장 기반 읽음 ID Set (빠른 O(1) 조회)
+  const readIdsSet = useMemo(() => new Set(readNotificationIds), [readNotificationIds]);
 
-  // 앱 부팅 시 / consultations & tasks & tick 변경 시 자동 알림 갱신
+  // 앱 구동 및 데이터 변경 시 동적 알림 계산 (100% Supabase DB 기준)
   useEffect(() => {
-    if (!currentAgentName) return;
+    if (!currentAgentName) {
+      setNotifications([]);
+      return;
+    }
 
+    const now = new Date();
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-    // 기존 보관 알림 로드 및 읽음 ID 세트 추출
-    const stored = loadNotifications(currentAgentName);
-    const readIds = new Set(stored.filter((n) => n.isRead).map((n) => n.id));
+    const generatedList: Notification[] = [];
 
-    // 1. 완료된 상담건 및 완료된 TODO ID 세트 추출 (완료 항목 알림 자동 즉시 제거)
-    const completedConsIds = new Set(
-      consultations
-        .filter((c) => c.status === '완료' || getResolvedStatus(c) === '완료')
-        .map((c) => c.id)
-    );
-    const completedTaskIds = new Set(
-      tasks.filter((t) => t.is_completed).map((t) => t.id)
-    );
-
-    // 기존 보관된 알림 중 완료 처리된 건 및 'dday'(주차 시작일) 타입 전면 제거
-    const baseNotifications = stored.filter((n) => {
-      if (n.consultationId && completedConsIds.has(n.consultationId)) return false;
-      if (n.taskId && completedTaskIds.has(n.taskId)) return false;
-      if ((n.type as string) === 'dday') return false;
-      if (
-        n.type === 'in_progress' ||
-        n.type === 'stale' ||
-        n.type === 'task_due' ||
-        n.type === 'task_transferred'
-      ) {
-        return false;
-      }
-      return true;
-    });
-
-    const newNotifications: Notification[] = [...baseNotifications];
-
-    // 2. 내 담당 비완료 상담건 알림 계산 (현재 로그인/배정된 상담사 전용)
+    // 1. 내 담당 비완료 상담건 알림 계산 (현재 로그인/배정된 상담사 전용)
     const myActiveConsultations = consultations.filter(
       (c) => c.agent_name === currentAgentName && c.status !== '완료' && getResolvedStatus(c) !== '완료'
     );
@@ -152,62 +122,75 @@ export function useNotifications({
       const displayName = maskTempPhoneNumber(rawPhone, '고객', true);
       const carNumber = maskTempCarNumber(rawCar, '');
 
+      // ⚙️ [처리 진행중] (공유자부재, 결제메시지전송, 부서확인중 등)
       if (isKanbanInProgress(c)) {
         const sub = (c.sub_status || '').replace(/[^0-9a-zA-Z가-힣]/g, '').replace(/메세지/g, '메시지');
         const carText = carNumber ? ` / ${carNumber}` : '';
-        const notifId = `inprogress-${c.id}`;
+
+        // 경과 일수 계산 (24시간 단위 일차별 버전화)
+        const updatedAt = c.updated_at ? new Date(c.updated_at) : new Date(c.created_at);
+        const diffMs = Math.max(0, now.getTime() - updatedAt.getTime());
+        const daysInProgress = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+
+        // 알림 ID: 24시간이 경과하여 일차가 바뀌면 신규 미확인 알림으로 재발동
+        const notifId = `inprogress-${c.id}-day${daysInProgress}`;
 
         let notifTitle = '⚙️ [처리 진행중] 리마인드 알림';
         let notifBody = `[${displayName}${carText}] 건이 현재 처리 진행 중입니다. 빠른 처리를 진행해 주세요.`;
 
         if (sub === '공유자부재' || sub === '공유자연락중') {
-          notifTitle = '🩷 [공유자 부재 / 재연락 필요]';
+          notifTitle = `🩷 [공유자 부재 / 재연락 필요${daysInProgress > 0 ? ` (${daysInProgress}일차)` : ''}]`;
           notifBody = `[${displayName}${carText}] 님의 공유자(임대인) 재연락 확인 및 팔로우업이 필요합니다.`;
         } else if (sub === '결제메시지전송') {
-          notifTitle = '🟡 [결제 메시지 전송 / 입금 확인 대기]';
+          notifTitle = `🟡 [결제 메시지 전송 / 입금 확인 대기${daysInProgress > 0 ? ` (${daysInProgress}일차)` : ''}]`;
           notifBody = `[${displayName}${carText}] 님에게 결제 메시지가 발송되었습니다. 입금 처리 여부를 확인해 주세요.`;
         } else if (sub === '부서확인중' || sub === '유선부서확인중' || sub === '유관부서확인중' || sub === '유관부서공급사확인중') {
-          notifTitle = '🟣 [유관부서/공급사 확인 중]';
+          notifTitle = `🟣 [유관부서/공급사 확인 중${daysInProgress > 0 ? ` (${daysInProgress}일차)` : ''}]`;
           notifBody = `[${displayName}${carText}] 건이 공급사 및 유관부서 회신 대기 중입니다.`;
         }
 
-        newNotifications.push({
+        generatedList.push({
           id: notifId,
           type: 'in_progress',
           title: notifTitle,
           body: notifBody,
           consultationId: c.id,
-          isRead: readIds.has(notifId),
-          createdAt: new Date().toISOString(),
+          isRead: readIdsSet.has(notifId),
+          createdAt: c.updated_at || c.created_at || now.toISOString(),
         });
       }
 
+      // 📋 [처리 정체] (3일 이상 상태 변경 없는 미완료건)
       if (c.status !== '완료' && c.updated_at) {
         const updatedAt = new Date(c.updated_at);
         if (updatedAt < threeDaysAgo) {
-          const notifId = `stale-${c.id}`;
-          newNotifications.push({
+          const diffMs = Math.max(0, now.getTime() - updatedAt.getTime());
+          const daysInactive = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+          // 일차별 버전화 알림 ID (3일차, 4일차, 5일차... 매 24시간마다 자동 미확인 재알림)
+          const notifId = `stale-${c.id}-day${daysInactive}`;
+
+          generatedList.push({
             id: notifId,
             type: 'stale',
-            title: '📋 처리 정체 상담건',
-            body: `[${displayName}] 건이 3일 이상 상태 변경 없이 정체 중입니다.`,
+            title: `📋 처리 정체 상담건 (${daysInactive}일차 재알림)`,
+            body: `[${displayName}] 건이 ${daysInactive}일 이상 상태 변경 없이 정체 중입니다.`,
             consultationId: c.id,
-            isRead: readIds.has(notifId),
-            createdAt: new Date().toISOString(),
+            isRead: readIdsSet.has(notifId),
+            createdAt: c.updated_at || now.toISOString(),
           });
         }
       }
     });
 
-    // 3. 내 담당 미완료 Task/TODO 알림 계산 (현재 로그인/배정된 상담사 전용)
+    // 2. 내 담당 미완료 Task/TODO 알림 계산 (현재 로그인/배정된 상담사 전용)
     const myPendingTasks = tasks.filter(
       (t) => t.agent_name === currentAgentName && !t.is_completed
     );
 
-    const nowTime = Date.now();
+    const nowTime = now.getTime();
 
     myPendingTasks.forEach((t) => {
-      // Option 1: reminder_datetime (미리 알림 계산 시각) 도달 시 팝업 알림 트리거
+      // 🔔 TODO 미리 알림 (reminder_datetime 도달 시)
       if (t.reminder_datetime) {
         const formatted = t.reminder_datetime.includes(' ') ? t.reminder_datetime.replace(' ', 'T') : t.reminder_datetime;
         const targetTime = new Date(formatted).getTime();
@@ -215,86 +198,62 @@ export function useNotifications({
         if (!isNaN(targetTime) && targetTime <= nowTime) {
           const tagText = t.tag ? `[${t.tag}] ` : '';
           const notifId = `taskdue-${t.id}`;
-          newNotifications.push({
+          generatedList.push({
             id: notifId,
             type: 'task_due',
             title: '🔔 TODO 미리 알림 도달',
             body: `${tagText}"${t.task_title}" 지정한 알림 시각에 도달했습니다.`,
             consultationId: t.consultation_id,
             taskId: t.id,
-            isRead: readIds.has(notifId),
-            createdAt: t.created_at || new Date().toISOString(),
+            isRead: readIdsSet.has(notifId),
+            createdAt: t.created_at || now.toISOString(),
           });
         }
       }
 
-      // 타 상담사가 나에게 이관/전달한 업무 알림
+      // 📌 타 상담사가 나에게 이관/전달한 업무 알림
       if (t.created_by && t.created_by !== currentAgentName) {
         const notifId = `tasktransfer-${t.id}`;
-        newNotifications.push({
+        generatedList.push({
           id: notifId,
           type: 'task_transferred',
           title: '📌 타 상담원 업무 수신',
           body: `[${t.created_by}] 상담사님이 전달한 업무: "${t.task_title}"`,
           consultationId: t.consultation_id,
           taskId: t.id,
-          isRead: readIds.has(notifId),
-          createdAt: t.created_at || new Date().toISOString(),
+          isRead: readIdsSet.has(notifId),
+          createdAt: t.created_at || now.toISOString(),
         });
       }
     });
 
-    updateNotifications(newNotifications);
-  }, [consultations, customers, tasks, currentAgentName, tick, updateNotifications]);
+    setNotifications(generatedList);
+  }, [consultations, customers, tasks, currentAgentName, tick, readIdsSet]);
 
-  // 외부에서 실시간 이관/배정 알림 추가하는 함수
-  const addNotification = useCallback(
-    (notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) => {
-      const newItem: Notification = {
-        ...notification,
-        id: `${notification.type}-${Date.now()}`,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      };
-      setNotifications((prev) => {
-        const updated = [newItem, ...prev].slice(0, 50); // 최대 50개 보관
-        saveNotifications(updated, currentAgentName);
-        return updated;
-      });
-    },
-    [currentAgentName]
-  );
-
-  // 특정 알림 읽음 처리
+  // 특정 알림 읽음 처리 (Supabase DB 저장)
   const markAsRead = useCallback(
     (notificationId: string) => {
-      setNotifications((prev) => {
-        const updated = prev.map((n) =>
-          n.id === notificationId ? { ...n, isRead: true } : n
-        );
-        saveNotifications(updated, currentAgentName);
-        return updated;
-      });
+      if (!notificationId) return;
+      const updated = Array.from(new Set([...readNotificationIds, notificationId]));
+      onUpdateReadNotifications?.(updated);
     },
-    [currentAgentName]
+    [readNotificationIds, onUpdateReadNotifications]
   );
 
-  // 전체 읽음 처리
+  // 전체 읽음 처리 (Supabase DB 저장)
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => ({ ...n, isRead: true }));
-      saveNotifications(updated, currentAgentName);
-      return updated;
-    });
-  }, [currentAgentName]);
+    const currentUnreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
+    if (currentUnreadIds.length === 0) return;
+    const updated = Array.from(new Set([...readNotificationIds, ...currentUnreadIds]));
+    onUpdateReadNotifications?.(updated);
+  }, [notifications, readNotificationIds, onUpdateReadNotifications]);
 
-  // 읽지 않은 알림 수
+  // 읽지 않은 알림 수 (Supabase DB 동기화 기준)
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return {
     notifications,
     unreadCount,
-    addNotification,
     markAsRead,
     markAllAsRead,
   };

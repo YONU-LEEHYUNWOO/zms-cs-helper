@@ -28,6 +28,8 @@ export interface InternalAgent {
   agent_status: '활성화' | '비활성화';
   /** 생성 일시 */
   created_at: string;
+  /** 읽은 알림 ID 목록 (Supabase DB 중앙 동기화) */
+  read_notification_ids?: string[];
   /** 최근 로그인 일시 */
   last_login_at?: string;
 }

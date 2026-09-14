@@ -85,6 +85,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
     customers,
     tasks,
     currentAgentName: currentAgent?.agent_name || '',
+    readNotificationIds: currentAgent?.read_notification_ids || [],
   });
 
   const notifications = passedNotifications ?? fallbackNotifState.notifications;

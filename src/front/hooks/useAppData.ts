@@ -58,6 +58,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     handleToggleAgentStatus,
     handleUpdateAgentRole,
     handleDeleteAgent,
+    handleUpdateReadNotifications,
   } = useInternalAgentState(currentAgent);
 
   const {
@@ -410,6 +411,7 @@ export function useAppData(currentAgent: InternalAgent | null, currentAgentName:
     handleToggleAgentStatus,
     handleUpdateAgentRole,
     handleDeleteAgent,
+    handleUpdateReadNotifications,
     handleAddTemplate,
     handleEditTemplate,
     handleDeleteTemplate,

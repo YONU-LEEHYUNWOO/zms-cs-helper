@@ -50,12 +50,18 @@ export default function App() {
   // 모든 상태와 비즈니스 핸들러는 커스텀 훅이 담당 (500라인 최적화 달성!)
   const appData = useAppData(currentAgent, currentAgentName);
 
-  // 🔔 사내 알림 관제 단일 원본 훅
+  // 🔔 사내 알림 관제 단일 원본 훅 (100% Supabase DB 중앙 동기화)
   const notifState = useNotifications({
     consultations: appData.allConsultations,
     customers: appData.customers,
     tasks: appData.tasks,
     currentAgentName: currentAgentName,
+    readNotificationIds: currentAgent?.read_notification_ids || [],
+    onUpdateReadNotifications: (readIds) => {
+      if (currentAgentName) {
+        appData.handleUpdateReadNotifications(currentAgentName, readIds);
+      }
+    },
   });
 
   return (

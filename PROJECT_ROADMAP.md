@@ -98,34 +98,63 @@ ZMS 파킹 CS 센터를 위한 **단일 통합 주차 CS 관제 및 상담 지�
 
 ### 2-21. ⚡ CTI AI 음성 분석 초고속 최적화 & 1클릭 원스톱 AI STT 즉시 분석 구현 (2026-08-26 완료)
 * **CTI 16페이지 중복 크롤링 스킵 최적화 (`api/cti.ts`)**: `selectedCallIdx`가 전달된 경우 CTI 16페이지 중복 크롤링을 즉시 스킵하고 오디오 파싱으로 직행하여 분석 속도를 **45초 ➔ 2.5초로 95% 이상 단축**.
-* **CTI 수신 목록 1클릭 원스톱 AI 오디오 STT 분석 (`CtiRecordTable.tsx`)**: 좌측 리스트 행의 `[🎙️ 분석]` 버튼 1클릭만으로 **해당 통화건을 선택함과 동시에 Gemini 3.5 AI 음성 STT 분석(`handleAnalyzeSelectedCall(false, rec.callIdx)`)이 2초 만에 즉시 실행**되도록 완전 일체화.
-* **A/B 통화 전환 시 잔상 0.01초 즉시 초기화 (`useCtiCollector.ts`)**: A통화 분석 결과가 잔상으로 남아 2번 클릭해야 하던 비동기 상태 딜레이를 명시적 `targetCallIdx` 파라미터 및 `setAudioAnalysisResult(null)` 즉시 초기화로 100% 원천 해결.
+* **CTI 수신 목록 1클릭 원스�### 2-27. 🔐 Supabase DB 기반 100% 알림 동기화 & 24시간 미해결 방치건 스마트 재리마인드 완수 (2026-09-14 완료)
+* **`localStorage` 알림 저장소 전면 제거 (`useNotifications.ts`)**:
+  * 구버전 `localStorage` 읽음 관리 코드(`loadNotifications`, `saveNotifications`) 완전 삭제 및 접속 시 로컬 찌꺼기 자동 cleanup 지원.
+* **Supabase DB 중앙 동기화 (`internal_agents.read_notification_ids`)**:
+  * `internal_agents` DB 테이블에 `read_notification_ids text[]` 컬럼 신설 및 실시간 동기화.
+  * 시크릿 모드, 다른 PC, 타 브라우저 로그인 시에도 DB 기준 100% 동일한 미확인/확인 알림 상태 유지.
+* **24시간 일차별 방치건 스마트 재리마인드 (`stale-ID-dayN`, `inprogress-ID-dayN`)**:
+  * 정체건 및 진행중건 알림 ID에 24시간 경과 일수 버전 부여.
+  * 3일차에 읽음 클릭했더라도 4일차(24시간 후) 미해결 상태 유지 시 **자동으로 `미확인 알림` 탭 이동 및 붉은 뱃지(`🔔 [N]건`) 재발동**.
 
-### 2-23. ⚡ Supabase Realtime Publication, 500줄 거대파일 모듈화 & 3인 서술형 이관 히스토리 완수 (2026-08-27 완료)
-* **⚡ Supabase Realtime Publication DB 적용**: Supabase MCP `execute_sql`을 통해 `ALTER PUBLICATION supabase_realtime ADD TABLE consultations, agent_tasks, customers, internal_agents;` 실행 및 PostgreSQL WAL WebSocket 이벤트를 통한 **계정 간 <500ms 실시간 동기화** 활성화 완료.
-* **🧹 단일 파일 500줄 제한 모듈화 (`AGENTS.md` Rule 2)**:
-  * `TaskManagementView.tsx` (612줄 ➔ **184줄**, 70% 감축): `taskFilterUtils.ts` (110줄), `TaskStatusCards.tsx` (115줄), `TaskFilterToolbar.tsx` (145줄), `TaskItemRow.tsx` (215줄) 분리.
-  * `useAppData.ts` (1,002줄 ➔ **422줄**, 58% 감축): `useAgentTaskState.ts` (160줄), `useInternalAgentState.ts` (130줄), `useConsultationFormState.ts` (210줄) subhooks 추출 및 통합.
-* **📋 TODO 관제 상단 4개 KPI 현황판 카드 정밀 필터링 완수**:
-  * **Card 1 (`내 담당 미완료 TODO`)**: 내 계정 미완료 TODO 포획.
-  * **Card 2 (`내가 타 상담사에 전달한 건`)**: 최초 작성자(`created_by`)가 본인이고 현재 담당자가 타 상담사인 미완료 이관건 포획. (`📌 작성: 이현우 ➔ 담당: 이동헌` 전달 배지)
-  * **Card 3 (`오늘 마감 / 알림 / 지연 항목`)**: 당일 마감/알림건 + 마감일 경과 미완료 지연(Overdue) 항목까지 통합 계산.
-  * **Card 4 (`사내 전체 상담사 TODO`)**: 사내 모든 상담사의 미완료 TODO 전체 표출.
-* **📜 3인 서술형 이관 히스토리 & 역할 기반 색상 이원화 (`TaskHistoryModal.tsx`)**:
-  * 기존 배정자(`from_agent`), 수신 담당자(`to_agent`), 이관 조작자(`operator_agent`) 3인 관계의 한글 서술형 문장 시각화.
-  * 💜 **보낸 사람 / 기존 배정자**: 인디고/보라색 아바타 칩 (`bg-indigo-100 text-indigo-950 border-indigo-200`)
-  * 🟧/🟩 **받는 사람**: 주황색(전달) / 에메랄드색(가져옴) 아바타 칩 분리.
-  * 동일 상담사(본인 ➔ 본인) 셀프 이관 차단 팝업 구축 및 DB 무의미 데이터 방지.
+---
 
-### 2-24. 🔴 좌측 사이드바 카카오톡 스타일 알림 뱃지 & Supabase DB 알림 정제 (2026-09-01 완료)
-* **🔴 좌측 사이드바 알림 센터 & 카카오톡 스타일 레드 뱃지 (`SideNavBar.tsx`)**:
-  * 메뉴 항목 `🔔 알림 센터` 탑재 및 미확인 알림 수에 따른 **레드 뱃지 칩(`[N]` 카운터 + 펄스 애니메이션)** 표출.
-  * 메뉴 접힘 모드(`isCollapsed`)에서도 벨 아이콘 우측 상단 중첩 표출 (카카오톡 채널 뱃지 디자인과 동일).
-* **알림 관제 전용 팝업 모달 (`NotificationCenterModal.tsx` - 168줄)**: Rule 8 (모달 백드롭 디스미스) 및 Rule 2 (500줄 제한) 준수. 알림 클릭 시 해당 상담/TODO 페이지로 1초 만에 스마트 뷰 스위칭.
-* **🧹 완료 항목 자동 정제 & 주차 시작일 알림 삭제 (`useNotifications.ts`)**:
-  * 완료된 상담건(`status === '완료'` 또는 `sub_status`가 `'결제완료'`/`'처리완료'`) 및 완료된 TODO 항목(`is_completed: true`)을 알림 목록에서 자동 즉시 정제 및 제외.
-  * `parking_start_date` D-Day / D-1 알림 로직 전면 삭제.
-  * 100% live Supabase DB 객체 기반 동적 알림 산출.
+## 3. 🟡 차세대 SaaS 고도화 & 다음 에이전트 개발 로드맵 (Immediate Tasks for Next Agent)
+
+### 3-1. 📞 다중 상담원 CTI 실시간 수신 상태 공유 & 내선 팝업 (Phase 1.6)
+* **목적**: 사내 CTI 전용 내선 서버와 연동하여, 현재 어떤 상담원이 고객과 통화 중인지(`통화 중`, `업무 가능`, `자리 비움`) 계정 간 <500ms 이내 실시간 공유 관제.
+* **구현 가이드**: `internal_agents.agent_status` 컬럼을 Supabase Realtime으로 브로드캐스팅하고 CTI 통화 시작/종료 시 상태를 자동 업데이트하는 팝업/인디케이터 구현.
+
+### 3-2. 💳 상담 처리 진척도 소분류 (`sub_status`) status 무결성 자동 동기화 보강 (Phase 1.7)
+* **목적**: `ConsultationRepositoryImpl.ts`에서 상담 데이터 저장(`saveConsultation`) 시 `sub_status` 기준 `status` 자동 일치 가드를 엄격히 보강 (Rule 5.1).
+
+### 3-3. 📱 카카오 알림톡 / SMS 고객 자동 발송 API 연동 (Phase 2.0)
+* **목적**: 상담원이 `[문자 발송]` 또는 `[상용구 전송]` 버튼 클릭 시 알림톡 API(카카오 알림톡/Twilio)와 연동하여 고객 핸드폰으로 자동 안내 템플릿 문자 발송.
+
+---
+
+## 4. 📂 핵심 파일 위치 및 역할
+
+| 기능 | 핵심 파일 | 설명 및 주의사항 |
+|---|---|---|
+| TODO 전담 리포지토리 | `src/backend/repositories/AgentTaskRepositoryImpl.ts` | **Supabase DB 단일 원본, FK(consultation_id) 사전 검증, DELETED_KEY 롤백 차단** |
+| TODO 리포지토리 규격 | `src/backend/repositories/IAgentTaskRepository.ts` | TODO 데이터 CRUD 및 다단계 이관 연쇄 히스토리 메소드 인터페이스 |
+| TODO CRUD 커스텀 서브훅 | `src/front/hooks/subhooks/useAgentTaskState.ts` | **TODO CRUD, Realtime 구독 및 상태 관리 서브훅 (160줄)** |
+| 상담원 계정 커스텀 서브훅 | `src/front/hooks/subhooks/useInternalAgentState.ts` | **상담원 CRUD, read_notification_ids DB 동기화 및 상태 관리 서브훅 (130줄)** |
+| 고객/상담 폼 커스텀 서브훅 | `src/front/hooks/subhooks/useConsultationFormState.ts` | **고객 추천 매칭 및 상담 폼 렌더링 서브훅 (210줄)** |
+| 메인 전역 앱 데이터 훅 | `src/front/hooks/useAppData.ts` | **3개 서브훅 조립 및 전역 애플리케이션 상태 통합 (422줄, 500줄 미만 준수)** |
+| TODO 필터/통계 유틸 | `src/front/components/tasks/helpers/taskFilterUtils.ts` | **TODO 카운터 수치 계산 및 4대 탭/검색어 필터링 순수 함수** |
+| TODO 4대 KPI 현황판 카드 | `src/front/components/tasks/components/TaskStatusCards.tsx` | 내 담당, 내가 전달한 건, 오늘 마감/지연, 사내 전체 미처리 KPI 카드 |
+| TODO 관제 제어 툴바 | `src/front/components/tasks/components/TaskFilterToolbar.tsx` | 5대 탭 스위치, 태그 드롭다운, 상담사 드롭다운 및 라이브 검색 |
+| TODO 항목 렌더링 행 | `src/front/components/tasks/components/TaskItemRow.tsx` | **TODO 체크박스, 이관 경로 배지 (`작성: X ➔ 담당: Y`), 이관 드롭다운** |
+| 3인 서술형 이관 히스토리 | `src/front/components/tasks/components/TaskHistoryModal.tsx` | **💜 보낸 사람(보라) ➔ 🟧/🟩 받는 사람 역할 기반 색상 차별화 3인 타임라인 모달** |
+| 업무 & TODO 관제 뷰 | `src/front/components/tasks/TaskManagementView.tsx` | 모듈화 하위 컴포넌트 조립 메인 전용 관제 컴포넌트 (184줄) |
+| 좌측 사이드바 | `src/front/components/navigation/SideNavBar.tsx` | **🔔 알림 센터 버튼 및 카카오톡 스타일 레드 뱃지 연동** |
+| 알림 관제 전용 모달 | `src/front/components/navigation/components/NotificationCenterModal.tsx` | **Rule 8 백드롭 디스미스 적용 알림 관제 모달 (168줄)** |
+| 탑바 & 알림/계정 드롭다운 | `src/front/components/navigation/TopNavBar.tsx` | **계정 프로필 단일화, 미확인/확인 서브 탭 분류, 🔔 알림 펄스 애니메이션** |
+| 계정 프로필 & 어드민 모달 | `src/front/components/auth/AgentProfileModal.tsx` | **Supabase Auth signUp 연동, Google AI Studio 무료 키 발급 가이드, 계정별 Gemini API 키 저장** |
+| CTI AI 음성 요약 모달 | `src/front/components/workspace/CtiAudioSummaryModal.tsx` | **CTI 6단계 크롤링, 내선번호 ↔ 상담사 1:1 매칭 배지, Gemini 3.5 Flash 2초 STT 분석 (281줄 경량화)** |
+| CTI 녹취 상세 제어 패널 | `src/front/components/workspace/CtiDetailPanel.tsx` | **상담원 내선 상자 `👤 이현우 상담사` 매칭 배지 표출**, MP3 오디오 플레이어 |
+| CTI 수신 이력 테이블 | `src/front/components/workspace/CtiRecordTable.tsx` | **수신 목록 내선번호 매칭 배지 표출, 통화일시 기간 검색 프리셋 및 과거 통화 30건 더보기 연동** |
+| CTI 크롤링 상태 관리 훅 | `src/front/hooks/useCtiCollector.ts` | **CTI 모든 상태, 날짜 기간 검색(begin_day/end_day), Load-More 페이징 및 비동기 API 연동 훅** |
+| 알림 관제 전용 훅 | `src/front/hooks/useNotifications.ts` | **Supabase DB 100% 읽음 동기화, 로컬스토리지 전면 제거, 24시간 일차별 방치건 스마트 재리마인드** |
+| 어드민 DB 데이터 마스터 | `src/front/components/admin/tabs/DbViewerTab.tsx` | **내 계정 디폴트 데이터 조회, DB 거울 테이블, 계정별 CSV 엑셀 다운로드, 전달 히스토리** |
+| 전역 마스킹 유틸리티 | `src/lib/utils/normalize.ts` | 임시 우회 식별자(`no-car-`, `no-phone-`) UI 마스킹 및 전화번호 표준화 |
+
+---
+
+*최종 업데이트: 2026-09-14 (Supabase DB 100% 알림 동기화, 로컬스토리지 제거, 24시간 일차별 방치건 스마트 재리마인드 완수) / 담당 AI: Antigravity*ase DB 객체 기반 동적 알림 산출.
 * **🔗 알림 상태 단일 원본 관리 (`App.tsx`)**: `useNotifications` 훅을 최상위로 이관하여 좌측 사이드바(`SideNavBar`)와 상단 네비바(`TopNavBar`)가 동일한 알림 상태와 카운터를 실시간 공유.
 
 ### 2-25. 🔐 CTI/Gemini 계정별 자격증명 격리 완성 & 보안 감사 (2026-09-02 완료)

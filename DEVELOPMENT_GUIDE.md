@@ -234,7 +234,16 @@ ZMS_CS_HELPER/
      - 상담 상태가 `'완료'`(`'결제완료'`, `'처리완료'`)되거나 업무가 완료(`is_completed: true`)되면 알림 목록 및 카운터에서 자동 즉시 정제 및 제외.
      - `parking_start_date` D-Day / D-1 알림 로직 전면 삭제.
      - 하드코딩/로컬 목데이터 없이 live Supabase DB 객체 기반으로만 100% 동적 알림 산출.
-  4. **알림 상태 단일 원본 관리 (`App.tsx`)**: `useNotifications` 훅을 `App.tsx` 최상위로 이관하여 좌측 사이드바(`SideNavBar`)와 상단 네비바(`TopNavBar`)가 동일한 알림 상태와 카운터를 실시간 공유.
+#### 4.16 🔐 Supabase DB 기반 100% 알림 동기화 & 24시간 미해결 방치건 스마트 재리마인드 (2026-09-14 완료)
+* **내용**: 기존 브라우저 `localStorage` 기반 읽음 관리를 전면 제거하고, Supabase DB `internal_agents.read_notification_ids` (text[] 컬럼) 기반으로 100% 중앙 동기화 및 24시간 단위 일차별 스마트 재리마인드 연동 완수.
+* **구현 세부사항**:
+  1. **Supabase DB 컬럼 추가**: `ALTER TABLE internal_agents ADD COLUMN IF NOT EXISTS read_notification_ids text[] DEFAULT '{}';` 실행 및 `InternalAgent` 타입 정의 최신화.
+  2. **`localStorage` 코드 전면 제거**: `useNotifications.ts` 내 `loadNotifications` 및 `saveNotifications` 함수 완전 삭제 및 구버전 로컬 키 자동 `removeItem` cleanup 처리.
+  3. **다중 기기/환경 100% 동기화**: 상담원이 어떤 PC, 타 브라우저, 시크릿 모드에서 접속하더라도 DB 기반으로 동일한 미확인/확인 알림 상태 유지.
+  4. **24시간 일차별 방치건 스마트 재리마인드**:
+     - 정체건(`stale`) 및 진행중건(`in_progress`)의 알림 ID에 경과 일수 버전(`-day3`, `-day4`...)을 동적 부여.
+     - 미해결 상태로 24시간이 경과할 때마다 신규 일차 알림 ID가 생성되어 **자동으로 `미확인 알림` 탭으로 이동 및 붉은 뱃지(`🔔 [N]건`) 재발동**.
+     - 상담이 `'완료'` 처리되면 모든 일차 알림이 100% 자동 즉시 정제되어 감춤.
 
 ---
 

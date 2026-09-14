@@ -216,6 +216,26 @@ export function useInternalAgentState(currentAgent: InternalAgent | null) {
     }
   }, []);
 
+  const handleUpdateReadNotifications = useCallback(async (agentName: string, readIds: string[]) => {
+    if (!agentName) return;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from('internal_agents')
+          .update({ read_notification_ids: readIds })
+          .eq('agent_name', agentName);
+        if (error) {
+          console.error('[updateReadNotifications] Supabase 오류:', error.message);
+        }
+      } catch (e) {
+        console.error('[updateReadNotifications] Supabase 예외:', e);
+      }
+    }
+    setAgents((prev) =>
+      prev.map((a) => (a.agent_name === agentName ? { ...a, read_notification_ids: readIds } : a))
+    );
+  }, []);
+
   return {
     agents,
     setAgents,
@@ -226,5 +246,6 @@ export function useInternalAgentState(currentAgent: InternalAgent | null) {
     handleToggleAgentStatus,
     handleUpdateAgentRole,
     handleDeleteAgent,
+    handleUpdateReadNotifications,
   };
 }
