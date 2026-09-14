@@ -4,13 +4,9 @@
  * [역할 및 아키텍처 위치]
  * - src/front/hooks/useNotifications.ts
  * - Supabase DB (internal_agents.read_notification_ids) 100% 중앙 동기화
- * - 로컬스토리지 전면 제거 & 24시간 일차별 방치건 스마트 재리마인드
- *
- * [알림 종류]
- * 1. ⚙️ 처리 진행중 (in_progress): 공유자부재, 결제메시지전송, 부서확인중 등 내 담당 건 (일차별 재알림)
- * 2. 📋 처리 정체 (stale): 3일 이상 상태 변경 없는 내 담당 건 (일차별 재알림)
- * 3. 🔔 TODO 마감 (task_due): 지정한 미리 알림 시각 도달 TODO
- * 4. 📌 업무 수신 (task_transferred): 타 상담사가 나에게 전달한 TODO
+ * - 클릭 즉시 0.01초 미확인 ➔ 확인됨 탭 이동 (낙관적 UI 반영)
+ * - 상담/TODO 처리 완료 시 양쪽 탭에서 자동 100% 삭제 (정제)
+ * - 미해결 방치건 24시간 단위 일차별 자동 미확인 재리마인드
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -71,9 +67,10 @@ export function useNotifications({
   onUpdateReadNotifications,
 }: UseNotificationsOptions) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [localReadIds, setLocalReadIds] = useState<string[]>([]);
   const [tick, setTick] = useState(0);
 
-  // 🧹 기존 로컬스토리지 찌꺼기 데이터 완전 제거 (사용자혼선 방지)
+  // 🧹 구버전 로컬스토리지 찌꺼기 키 자동 청소 (사용자 혼선 차단)
   useEffect(() => {
     try {
       localStorage.removeItem('zms_notifications_v1');
@@ -93,10 +90,12 @@ export function useNotifications({
     return () => clearInterval(timer);
   }, []);
 
-  // Supabase DB 저장 기반 읽음 ID Set (빠른 O(1) 조회)
-  const readIdsSet = useMemo(() => new Set(readNotificationIds), [readNotificationIds]);
+  // Supabase DB 저장 ID와 프론트엔드 낙관적 클릭 ID 이중 병합 세트
+  const effectiveReadIdsSet = useMemo(() => {
+    return new Set([...readNotificationIds, ...localReadIds]);
+  }, [readNotificationIds, localReadIds]);
 
-  // 앱 구동 및 데이터 변경 시 동적 알림 계산 (100% Supabase DB 기준)
+  // 동적 알림 계산 (상담/TODO 완료 시 100% 자동 정제/삭제)
   useEffect(() => {
     if (!currentAgentName) {
       setNotifications([]);
@@ -109,7 +108,7 @@ export function useNotifications({
 
     const generatedList: Notification[] = [];
 
-    // 1. 내 담당 비완료 상담건 알림 계산 (현재 로그인/배정된 상담사 전용)
+    // 1. 내 담당 비완료 상담건 알림 계산 (상담 완료 건은 자동 정제되어 제외)
     const myActiveConsultations = consultations.filter(
       (c) => c.agent_name === currentAgentName && c.status !== '완료' && getResolvedStatus(c) !== '완료'
     );
@@ -132,7 +131,7 @@ export function useNotifications({
         const diffMs = Math.max(0, now.getTime() - updatedAt.getTime());
         const daysInProgress = Math.floor(diffMs / (24 * 60 * 60 * 1000));
 
-        // 알림 ID: 24시간이 경과하여 일차가 바뀌면 신규 미확인 알림으로 재발동
+        // 알림 ID: 24시간이 경과하여 일차가 바뀌면 신규 미확인 알림으로 자동 재발동
         const notifId = `inprogress-${c.id}-day${daysInProgress}`;
 
         let notifTitle = '⚙️ [처리 진행중] 리마인드 알림';
@@ -155,7 +154,7 @@ export function useNotifications({
           title: notifTitle,
           body: notifBody,
           consultationId: c.id,
-          isRead: readIdsSet.has(notifId),
+          isRead: effectiveReadIdsSet.has(notifId),
           createdAt: c.updated_at || c.created_at || now.toISOString(),
         });
       }
@@ -175,14 +174,14 @@ export function useNotifications({
             title: `📋 처리 정체 상담건 (${daysInactive}일차 재알림)`,
             body: `[${displayName}] 건이 ${daysInactive}일 이상 상태 변경 없이 정체 중입니다.`,
             consultationId: c.id,
-            isRead: readIdsSet.has(notifId),
+            isRead: effectiveReadIdsSet.has(notifId),
             createdAt: c.updated_at || now.toISOString(),
           });
         }
       }
     });
 
-    // 2. 내 담당 미완료 Task/TODO 알림 계산 (현재 로그인/배정된 상담사 전용)
+    // 2. 내 담당 미완료 Task/TODO 알림 계산 (완료 체크된 TODO는 자동 정제되어 제외)
     const myPendingTasks = tasks.filter(
       (t) => t.agent_name === currentAgentName && !t.is_completed
     );
@@ -205,7 +204,7 @@ export function useNotifications({
             body: `${tagText}"${t.task_title}" 지정한 알림 시각에 도달했습니다.`,
             consultationId: t.consultation_id,
             taskId: t.id,
-            isRead: readIdsSet.has(notifId),
+            isRead: effectiveReadIdsSet.has(notifId),
             createdAt: t.created_at || now.toISOString(),
           });
         }
@@ -221,34 +220,48 @@ export function useNotifications({
           body: `[${t.created_by}] 상담사님이 전달한 업무: "${t.task_title}"`,
           consultationId: t.consultation_id,
           taskId: t.id,
-          isRead: readIdsSet.has(notifId),
+          isRead: effectiveReadIdsSet.has(notifId),
           createdAt: t.created_at || now.toISOString(),
         });
       }
     });
 
     setNotifications(generatedList);
-  }, [consultations, customers, tasks, currentAgentName, tick, readIdsSet]);
+  }, [consultations, customers, tasks, currentAgentName, tick, effectiveReadIdsSet]);
 
-  // 특정 알림 읽음 처리 (Supabase DB 저장)
+  // 특정 알림 읽음 처리 (0.01초 낙관적 UI 갱신 + Supabase DB 전송)
   const markAsRead = useCallback(
     (notificationId: string) => {
       if (!notificationId) return;
-      const updated = Array.from(new Set([...readNotificationIds, notificationId]));
+
+      // 1. 0.01초 즉시 낙관적 UI 업데이트 (미확인 ➔ 확인됨 탭 이동)
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+      );
+      setLocalReadIds((prev) => Array.from(new Set([...prev, notificationId])));
+
+      // 2. Supabase DB 비동기 저장
+      const updated = Array.from(new Set([...readNotificationIds, ...localReadIds, notificationId]));
       onUpdateReadNotifications?.(updated);
     },
-    [readNotificationIds, onUpdateReadNotifications]
+    [readNotificationIds, localReadIds, onUpdateReadNotifications]
   );
 
-  // 전체 읽음 처리 (Supabase DB 저장)
+  // 전체 읽음 처리 (0.01초 낙관적 UI 갱신 + Supabase DB 전송)
   const markAllAsRead = useCallback(() => {
-    const currentUnreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
-    if (currentUnreadIds.length === 0) return;
-    const updated = Array.from(new Set([...readNotificationIds, ...currentUnreadIds]));
-    onUpdateReadNotifications?.(updated);
-  }, [notifications, readNotificationIds, onUpdateReadNotifications]);
+    const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
+    if (unreadIds.length === 0) return;
 
-  // 읽지 않은 알림 수 (Supabase DB 동기화 기준)
+    // 1. 0.01초 즉시 낙관적 UI 업데이트
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setLocalReadIds((prev) => Array.from(new Set([...prev, ...unreadIds])));
+
+    // 2. Supabase DB 비동기 저장
+    const updated = Array.from(new Set([...readNotificationIds, ...localReadIds, ...unreadIds]));
+    onUpdateReadNotifications?.(updated);
+  }, [notifications, readNotificationIds, localReadIds, onUpdateReadNotifications]);
+
+  // 읽지 않은 알림 수
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return {

@@ -60,6 +60,12 @@ export default function App() {
     onUpdateReadNotifications: (readIds) => {
       if (currentAgentName) {
         appData.handleUpdateReadNotifications(currentAgentName, readIds);
+        if (currentAgent) {
+          setAgentOverride({
+            ...currentAgent,
+            read_notification_ids: readIds,
+          });
+        }
       }
     },
   });
